@@ -6,6 +6,7 @@ Public
 #If TARGET = "html5"
 	#VIRTUALOS_IMPLEMENTED = True
 	#VIRTUALOS_MAP_ENV = True
+	'#VIRTUALOS_REAL_FILEPATH = True
 #Elseif LANG = "cpp" And TARGET <> "win8"
 	#VIRTUALOS_REAL = True
 #End
@@ -17,6 +18,10 @@ Public
 	#End
 #Else
 	Import "native/os.${LANG}"
+#End
+
+#If VIRTUALOS_REAL_FILEPATH
+	Import brl.filepath
 #End
 
 ' Imports (Private):
@@ -192,57 +197,59 @@ Public
 		Return DeleteDir(Path)
 	End
 	
-	Function StripDir:String(Path:String)
-		Local I:= Path.FindLast("/")
+	#If Not VIRTUALOS_REAL_FILEPATH
+		Function StripDir:String(Path:String)
+			Local I:= Path.FindLast("/")
+			
+			If (I = STRING_INVALID_LOCATION) Then
+				I = Path.FindLast( "\" )
+			Endif
+			
+			If (I <> STRING_INVALID_LOCATION) Then
+				Return Path[I+1..]
+			Endif
+			
+			Return Path
+		End
 		
-		If (I = STRING_INVALID_LOCATION) Then
-			I = Path.FindLast( "\" )
-		Endif
+		Function ExtractDir:String(Path:String)
+			Local I:= Path.FindLast("/")
+			
+			If (I = STRING_INVALID_LOCATION) Then
+				I = Path.FindLast("\")
+			Endif
+			
+			If (I <> STRING_INVALID_LOCATION) Then
+				Return Path[..I]
+			Endif
+			
+			Return ""
+		End
 		
-		If (I <> STRING_INVALID_LOCATION) Then
-			Return Path[I+1..]
-		Endif
+		Function StripExt:String(Path:String)
+			Local I:= Path.FindLast(".")
+			Local SecondarySearchPos:= (I+1)
+			
+			If ((I <> STRING_INVALID_LOCATION) And (Path.Find("/", SecondarySearchPos) = STRING_INVALID_LOCATION) And (Path.Find("\", SecondarySearchPos)= STRING_INVALID_LOCATION)) Then
+				Return Path[..I]
+			Endif
+			
+			Return Path
+		End
 		
-		Return Path
-	End
-	
-	Function ExtractDir:String(Path:String)
-		Local I:= Path.FindLast("/")
+		Function ExtractExt:String(Path:String)
+			Local I:= Path.FindLast(".")
+			Local SecondarySearchPos:= (I+1)
+			
+			If ((I <> STRING_INVALID_LOCATION) And (Path.Find("/", SecondarySearchPos) = STRING_INVALID_LOCATION) And (Path.Find("\", SecondarySearchPos)= STRING_INVALID_LOCATION)) Then
+				Return Path[SecondarySearchPos..]
+			Endif
+			
+			Return ""
+		End
 		
-		If (I = STRING_INVALID_LOCATION) Then
-			I = Path.FindLast("\")
-		Endif
-		
-		If (I <> STRING_INVALID_LOCATION) Then
-			Return Path[..I]
-		Endif
-		
-		Return ""
-	End
-	
-	Function StripExt:String(Path:String)
-		Local I:= Path.FindLast(".")
-		Local SecondarySearchPos:= (I+1)
-		
-		If ((I <> STRING_INVALID_LOCATION) And (Path.Find("/", SecondarySearchPos) = STRING_INVALID_LOCATION) And (Path.Find("\", SecondarySearchPos)= STRING_INVALID_LOCATION)) Then
-			Return Path[..I]
-		Endif
-		
-		Return Path
-	End
-	
-	Function ExtractExt:String(Path:String)
-		Local I:= Path.FindLast(".")
-		Local SecondarySearchPos:= (I+1)
-		
-		If ((I <> STRING_INVALID_LOCATION) And (Path.Find("/", SecondarySearchPos) = STRING_INVALID_LOCATION) And (Path.Find("\", SecondarySearchPos)= STRING_INVALID_LOCATION)) Then
-			Return Path[SecondarySearchPos..]
-		Endif
-		
-		Return ""
-	End
-	
-	Function StripAll:String(Path:String)
-		Return StripDir(StripExt(Path))
-	End
+		Function StripAll:String(Path:String)
+			Return StripDir(StripExt(Path))
+		End
+	#End
 #End
