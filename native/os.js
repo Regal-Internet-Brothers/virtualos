@@ -1,16 +1,35 @@
 
-var __appargs = [];
-var __vfilesystem = {};
-var __currentdir = "";
+// Constant variable(s):
 
+// File-type macros:
+var FILETYPE_NONE = 0;
+var FILETYPE_FILE = 1;
+var FILETYPE_DIR = 2;
+
+// Global variable(s):
+
+// This is used to supply arguments to the application.
+var __os_appargs = [];
+
+// This is used to keep track of the current directory.
+var __os_currentdir = "";
+
+// This specifies the default storage.
+var __os_storage = sessionStorage;
+
+// This is used to force re-downloads of remote files. (Unfinished behavior)
+var __os_badcache = false;
+
+// Functions:
+
+// Extensions:
 function __os_SetAppArgs(args)
 {
-	__appargs = args
-	
-	return;
+	__os_appargs = args
 }
 
-function __toRemotePath(path)
+// This DOES NOT call 'RealPath', please call that first.
+function __os_toRemotePath(path)
 {
 	var loc = document.URL;
 	
@@ -24,26 +43,57 @@ function __toRemotePath(path)
 	return loc.substring(0, finalSlash) + path;
 }
 
-function HostOS()
+// This downloads from 'url', and returns the file's data.
+// If no file was found, the return-value is undefined.
+function __os_download(url)
 {
-	return "web";
-}
-
-function AppPath()
-{
-	return "/data/bin" + window.location.pathname;
-}
-
-function AppArgs()
-{
-	return [AppPath()].concat(__appargs);
-}
-
-function fixDir(f)
-{
-	//print("FIX DIR: " + f);
+	var xhr = new XMLHttpRequest();
 	
-	var final = f;
+	xhr.open("GET", url, false); // "HEAD"
+	xhr.send(null);
+	
+	if (xhr.status == 200 || xhr.status == 304 || xhr.status == 0)
+	{
+		return xhr.responseText;
+	}
+}
+
+// This downloads a file from 'url' and represents it with 'rep'.
+function __os_downloadFileUsingRep(storage, url, rep)
+{
+	var repValue = storage.getItem(rep);
+	
+	if (__os_badcache || repValue == null) // === undefined
+	{
+		var data = __os_download(url);
+		
+		if (data != null)
+		{
+			storage.setItem(rep, data);
+		}
+		
+		return data;
+	}
+	
+	return repValue;
+}
+
+// This converts 'path' into a url, and represents the enclosed data with 'path'. (Calls 'downloadFileFrom')
+function __os_downloadFile(storage, realPath)
+{
+	return __os_downloadFileUsingRep(storage, __os_toRemotePath(realPath), realPath);
+}
+
+// This specifies if this browser supports native file storage.
+function __os_storageSupported()
+{
+	return (typeof(Storage) !== "undefined");
+}
+
+// This fixes uses of ".." in paths. (Partially unsafe)
+function __os_fixDir(exactPath)
+{
+	var final = exactPath;
 	
 	while (true)
 	{
@@ -61,67 +111,151 @@ function fixDir(f)
 		final = z;
 	}
 	
-	//print("//// FIXED DIR: " + final);
-	
 	return final;
 }
 
-function RealPath(f)
+// This checks if any of the 'types' specified match 'lCasePath'. (Used internally)
+function __os_supportedFile(lCasePath, types)
 {
-	if (!f.startsWith("/"))
+	for (var i = 0; i < types.length; i++)
 	{
-		f = __currentdir + "/" + f;
-	}
-	else
-	{
-		f = __currentdir + f;
+		if (lCasePath.endsWith(types[i].toLowerCase()))
+		{
+			return true;
+		}
 	}
 	
-	var final = fixDir(f);
-	
-	return final;
+	// Return the default response.
+	return false;
 }
 
+// This checks if any of the pre-defined supported file-types match 'lCasePath'. (Used internally)
+function __os_testSupportedFiles(lCasePath)
+{
+	// Currently pre-determined types; may be changed later:
+	if (__os_supportedFile(lCasePath, CFG_TEXT_FILES)) return true;
+	if (__os_supportedFile(lCasePath, CFG_BINARY_FILES)) return true;
+	if (__os_supportedFile(lCasePath, CFG_MUSIC_FILES)) return true;
+	if (__os_supportedFile(lCasePath, CFG_BINARY_FILES)) return true;
+	
+	// Return the default response.
+	return false;
+}
+
+// This checks if the file at 'path' is stored or not.
+function __os_storageLookup(realPath)
+{
+	var ls = localStorage.getItem(realPath);
+	
+	if (ls != null)
+	{
+		return ls;
+	}
+	
+	var ss = sessionStorage.getItem(realPath);
+	
+	if (ss != null)
+	{
+		return ss;
+	}
+}
+
+// This gets a file using 'path' from a remote host.
+// If this is already present in some kind of storage, it uses the cache.
+function __os_getFile(realPath)
+{
+	var f = __os_storageLookup(realPath);
+	
+	if (f == null)
+	{
+		return __os_downloadFile(__os_storage, realPath);
+	}
+	
+	return f;
+}
+
+function __os_deleteFileEntries(realPath)
+{
+	var response = false;
+	
+	// Test for 'realPath', and if found, remove it:
+	var ls = localStorage.getItem(realPath);
+	
+	if (ls != null)
+	{
+		localStorage.removeItem(realPath); // ls;
+		
+		response = true;
+	}
+	
+	var ss = sessionStorage.getItem(realPath);
+	
+	if (ss != null)
+	{
+		sessionStorage.removeItem(realPath); // ss;
+		
+		response = true;
+	}
+	
+	return response;
+}
+
+// API:
+
+// Used internally; DO NOT change.
+function HostOS()
+{
+	return "web";
+}
+
+// The implied path of this program. (Compiler fix)
+function AppPath()
+{
+	return "/data/bin" + window.location.pathname;
+}
+
+// The 'AppPath' (Reserved), and any argument supplied by the user.
+function AppArgs()
+{
+	return [AppPath()].concat(__os_appargs);
+}
+
+// The "real" (Local) path of 'f'.
+function RealPath(path)
+{
+	if (path.indexOf(__os_currentdir) != 0)
+	{
+		//if (!path.startsWith("/"))
+		if (path.indexOf("/") != 0)
+		{
+			path = __os_currentdir + "/" + path; // <- Unsure if I should be doing this.
+		}
+		else
+		{
+			path = __os_currentdir + path;
+		}
+	}
+	
+	return __os_fixDir(path);
+}
+
+// This attempts to recognize the "file-type" of 'path'. (Uses supported files)
 function FileType(path)
 {
-	var FILETYPE_NONE = 0;
-	var FILETYPE_FILE = 1;
-	var FILETYPE_DIR = 2;
+	var realPath = RealPath(path);
+	var file = __os_getFile(realPath);
 	
-	var url = __toRemotePath(path);
-	
-	var http = new XMLHttpRequest();
-	
-	print("GET: " + url);
-	print("FROM: " + path);
-	
-	http.open('GET', url, false); // 'HEAD'
-	http.send();
-	
-	if (http.status == 200 || http.status == 0)
+	if (file != null)
 	{
-		var lCasePath = path.toLowerCase();
-		
-		for (var i = 0; i < CFG_TEXT_FILES.length; i++)
+		//if (__os_testSupportedFiles(realPath.toLowerCase()))
+		if (realPath.indexOf(".") > -1 && file.indexOf("//") != 0)
 		{
-			if (lCasePath.endsWith(CFG_TEXT_FILES[i].toLowerCase()))
-			{
-				return FILETYPE_FILE;
-			}
+			return FILETYPE_FILE;
 		}
-		
-		return FILETYPE_DIR;
-	}
-	
-	/*
-	print("{ CONTEXT : \"" + __currentdir + "\" }")
-	print("{"+http.status+"}: Can't find \"" + url + "\".");
-	print("{ ORIGINAL : \"" + path + "\" }");
-	*/
-	
-	if (__dirs.indexOf(path) > -1)
-	{
-		return FILETYPE_DIR;
+		else
+		{
+			return FILETYPE_DIR;
+		}
 	}
 	
 	return FILETYPE_NONE;
@@ -129,43 +263,65 @@ function FileType(path)
 
 function FileSize(path)
 {
-	alert("FILE SIZE: " + path);
+	var storage = sessionStorage;
 	
-	return 0;
+	if (downloadFile(storage, path) == null)
+	{
+		return 0;
+	}
+	
+	return storage.getItem(path).length;
 }
 
 function FileTime(path)
 {
-	alert("FILE TIME: " + path);
+	alert("Unsupported operation | FileTime: " + path);
 	
 	return 0;
 }
 
 function CopyFile(src, dst)
 {
-	alert("COPY FILE: " + src + ", " + dst);
+	var rsrc = RealPath(src);
+	var f = __os_downloadFile(__os_storage, rsrc); //__os_storageLookup(rsrc);
 	
-	return;
+	if (f == null)
+	{
+		return false;
+	}
+	
+	var rdst = RealPath(dst);
+	
+	__os_storage.setItem(rdst, f);
+	
+	// Return the default response.
+	return true;
 }
 
 function DeleteFile(path)
 {
-	alert("DELETE FILE: " + path);
-	
-	return;
+	return __os_deleteFileEntries(RealPath(path));
 }
 
 function LoadString(path)
 {
-	var xhr = new XMLHttpRequest();
+	var rpath = RealPath(path);
+	var f = __os_storageLookup(rpath);
 	
-	xhr.open("GET", __toRemotePath(path), false);
-	
-	xhr.send(null);
-	
-	if (xhr.status == 200 || xhr.status == 0)
+	if (f == null)
 	{
-		return xhr.responseText;
+		// Currently not cached (To be changed):
+		//var dl = __os_download(__os_toRemotePath(rpath));
+		var dl = __os_downloadFile(__os_storage, rpath);
+		
+		if (dl != null)
+		{
+			return dl;
+		}
+	}
+	else
+	{
+		return f;
 	}
 	
 	return "";
@@ -176,8 +332,27 @@ function SaveString(str, path)
 	document.writeln("WROTE FILE: \"" + path + "\"");
 	//document.writeln(path + " : ");
 	//document.write(str);
-	
-	return;
+}
+
+function __os_loadStorage(realPath, storage, out)
+{
+	// for (var i in storage)
+	for (var i = 0; i < storage.length; i++)
+	{
+		var key = storage.key(i);
+		var parentPos = key.indexOf(realPath);
+		
+		//if (key.startsWith(..))
+		if (parentPos == 0)
+		{
+			var subdir = key.lastIndexOf("/");
+			
+			if ((realPath.length) == subdir)
+			{
+				out.push(key.substring(subdir+1));
+			}
+		}
+	}
 }
 
 function LoadDir(path)
@@ -189,9 +364,15 @@ function LoadDir(path)
 		case "/data/targets/html5":
 			return ["modules", "template", "TARGET.MONKEY"]; break;
 		default:
-			document.writeln("Path: " + path);
+			var rp = RealPath(path);
 			
-			break;
+			var out = [];
+			
+			// Depends on these being the only storage options:
+			__os_loadStorage(rp, localStorage, out);
+			__os_loadStorage(rp, sessionStorage, out);
+			
+			return out; break;
 	}
 	
 	return [];
@@ -199,10 +380,9 @@ function LoadDir(path)
 
 function CreateDir(path)
 {
-	print("CREATE DIR: " + path);
-	//return true;
+	alert("CREATE DIR: " + path);
 	
-	__dirs.push(path);
+	__os_storage.setItem(RealPath(path), "// "+path); // <-- Prefix added for debugging purposes.
 	
 	return true;
 }
@@ -210,63 +390,50 @@ function CreateDir(path)
 function DeleteDir(path)
 {
 	print("DELETE DIR: " + path);
-	//return true;
 	
-	var index = __dirs.indexOf(path);
-	
-	if (index <= -1)
-	{
-		return false;
-	}
-	
-	__dirs.splice(index, 1);
-	
-	return true;
+	return __os_deleteFileEntries(RealPath(path));
 }
 
 function ChangeDir(path)
 {
 	print("CHANGE DIR: " + path);
-	print("PREV__CDIR: " + __currentdir);
+	print("PREV__CDIR: " + __os_currentdir);
 	
-	var first = __currentdir.indexOf("/");
-	var second = __currentdir.lastIndexOf("/");
+	var first = __os_currentdir.indexOf("/");
+	var second = __os_currentdir.lastIndexOf("/");
 	
-	if (first == 0 || second == __currentdir.length-1)
+	if (first == 0 || second == __os_currentdir.length-1)
 	{
-		__currentdir = __currentdir.substring(first+1, (second != -1) ? second : __currentdir.length);
+		__os_currentdir = __os_currentdir.substring(first+1, (second != -1) ? second : __os_currentdir.length);
 	}
 	
-	if (!__currentdir.startsWith("data"))
+	if (!__os_currentdir.startsWith("data"))
 	{
-		__currentdir = "data/" + __currentdir;
+		__os_currentdir = "data/" + __os_currentdir;
 	}
 	
-	__currentdir = path;
+	__os_currentdir = path;
 	
-	print("CHANGE__CDIR: " + __currentdir);
+	print("CHANGE__CDIR: " + __os_currentdir);
 	
-	return __currentdir;
+	return __os_currentdir;
 }
 
 function CurrentDir()
 {
-	//alert("CURRENT DIR.");
-	
-	return __currentdir;
+	return __os_currentdir;
 }
 
 function Execute(cmd)
 {
-	document.writeln("CMD: " + cmd);
+	alert("CMD: " + cmd);
 	
-	return;
+	document.writeln("CMD: " + cmd);
 }
 
 function ExitApp(retCode)
 {
 	alert("EXIT: " + retCode);
-	throw null;
 	
-	return;
+	throw null;
 }

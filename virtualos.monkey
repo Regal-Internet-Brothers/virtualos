@@ -7,6 +7,10 @@ Public
 	#VIRTUALOS_IMPLEMENTED = True
 	#VIRTUALOS_MAP_ENV = True
 	'#VIRTUALOS_REAL_FILEPATH = True
+	
+	#If CONFIG = "debug"
+		#VIRTUALOS_DEBUG = True
+	#End
 #Elseif LANG = "cpp" And TARGET <> "win8"
 	#VIRTUALOS_REAL = True
 #End
@@ -65,7 +69,12 @@ Public
 	#End
 	
 	Function Execute:Int(CMD:String)
-	Function ExitApp:Int(RetCode:Int)
+	
+	#If Not VIRTUALOS_DEBUG
+		Function ExitApp:Int(RetCode:Int)
+	#Else
+		Function _ExitApp:Int(RetCode:Int)="ExitApp"
+	#End
 	
 	Public
 	
@@ -250,6 +259,16 @@ Public
 		
 		Function StripAll:String(Path:String)
 			Return StripDir(StripExt(Path))
+		End
+	#End
+	
+	#If VIRTUALOS_DEBUG
+		Function ExitApp:Int(RetCode:Int)
+			DebugStop()
+			
+			_ExitApp(RetCode)
+			
+			Return 0
 		End
 	#End
 #End
