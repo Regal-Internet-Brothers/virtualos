@@ -4,8 +4,15 @@ Public
 
 ' Preprocessor related:
 #If TARGET = "html5"
+	#VIRTUALOS_JS_TARGET = True
+#End
+
+#If VIRTUALOS_JS_TARGET
 	#VIRTUALOS_IMPLEMENTED = True
 	#VIRTUALOS_MAP_ENV = True
+	#VIRTUALOS_EXTENSION_DL = True
+	#VIRTUALOS_EXTENSION_VFILE = True
+	#VIRTUALOS_EXTENSION_REMOTEPATH = True
 	'#VIRTUALOS_REAL_FILEPATH = True
 	
 	#If CONFIG = "debug"
@@ -33,19 +40,64 @@ Private
 
 #If VIRTUALOS_IMPLEMENTED
 	Import regal.stringutil
+	
+	#If VIRTUALOS_EXTENSION_DL And VIRTUALOS_EXTENSION_VFILE
+		Import regal.ioutil.stringstream
+	#End
+	
+	#If VIRTUALOS_JS_TARGET
+		'Import dom
+	#End
 #End
 
 Public
 
 #If VIRTUALOS_IMPLEMENTED
 	' Constant variable(s):
+	
+	' File-types (Must be the same across borders):
 	Const FILETYPE_NONE:=		0
 	Const FILETYPE_FILE:=		1
 	Const FILETYPE_DIR:=		2
 	
-	' Functions (External):
+	' External bindings:
 	Extern
 	
+	' Global variable(s) (External) (Private):
+	Extern Private
+	
+	' If you are supporting these extensions, please provide '__OS_Storage'.
+	#If VIRTUALOS_EXTENSION_VFILE
+		#If VIRTUALOS_JS_TARGET
+			Global __OS_Storage:StorageHandle="__os_storage"
+		#End
+	#End
+	
+	Extern
+	
+	' Classes (External) (Private):
+	Extern Private
+	
+	' API:
+	' Nothing so far.
+	
+	' Extensions:
+	#If VIRTUALOS_EXTENSION_VFILE
+		#If VIRTUALOS_JS_TARGET
+			Class StorageHandle = "Storage" ' Extends DOMObject
+				' Methods:
+				' Nothing so far.
+			End
+		#Else
+			#Error "Unable to resolve type: 'StorageHandle'"
+		#End
+	#End
+	
+	Extern
+	
+	' Functions (External):
+	
+	' API:
 	Function HostOS:String()
 	Function AppPath:String()
 	Function AppArgs:String[]()
@@ -76,6 +128,25 @@ Public
 		Function _ExitApp:Int(RetCode:Int)="ExitApp"
 	#End
 	
+	' Extensions:
+	#If VIRTUALOS_EXTENSION_REMOTEPATH
+		Function __OS_ToRemotePath:String(RealPath:String)="__os_toRemotePath"
+	#End
+	
+	#If VIRTUALOS_EXTENSION_DL
+		Function __OS_Download:String(URL:String)="__os_download"
+		
+		' Virtual file-system (JavaScript) extensions:
+		#If VIRTUALOS_EXTENSION_VFILE ' VIRTUALOS_JS_TARGET
+			Function __OS_DownloadFileUsingRep:String(Storage:StorageHandle, URL:String, Rep:String)="__os_downloadFileUsingRep"
+			Function __OS_DownloadFile:String(Storage:StorageHandle, RealPath:String)="__os_downloadFile"
+		#End
+	#End
+	
+	#If VIRTUALOS_EXTENSION_VFILE
+		Function __OS_StorageSupported:Bool()="__os_storageSupported"
+	#End
+	
 	Public
 	
 	' Global variable(s) (Private):
@@ -86,6 +157,8 @@ Public
 	Public
 	
 	' Functions (Monkey):
+	
+	' API:
 	#If VIRTUALOS_MAP_ENV
 		Function SetEnv:Void(name:String, value:String)
 			__OS_Env.Set(name, value)
@@ -262,6 +335,7 @@ Public
 		End
 	#End
 	
+	' Debugging related:
 	#If VIRTUALOS_DEBUG
 		Function ExitApp:Int(RetCode:Int)
 			DebugStop()
@@ -269,6 +343,110 @@ Public
 			_ExitApp(RetCode)
 			
 			Return 0
+		End
+	#End
+	
+	' Extensions:
+	#If VIRTUALOS_EXTENSION_VFILE
+		#If VIRTUALOS_EXTENSION_DL
+			Function __OS_AddFileSystem:Void(URL:String)
+				Local FileData:= __OS_Download(URL)
+				
+				Local SS:= New StringStream(FileData, ,,,, True)
+				
+				__OS_ParseFileSystem(SS)
+				
+				Return
+			End
+		#End
+		
+		Function __OS_ParseFileSystem:Void(S:Stream) ' StringStream
+			__OS_ParseFileSystem(S, New StringStack())
+			
+			Return
+		End
+		
+		' A simple parser that takes each line of a 'Stream', and decodes a folder structure from the input.
+		Function __OS_ParseFileSystem:Void(S:Stream, Context:Stack<String>) ' StringStream
+			' Constant variable(s):
+			Const DIVIDER:= ASCII_CHARACTER_SPACE
+			
+			' Local variable(s):
+			Local LastMasterPath:String
+			
+			Local Cache_Context_Length:= 0
+			Local Cache_Context:String
+			
+			While (Not S.Eof) ' Eof()
+				Local Origin:= S.Position
+				Local IsFileDescriptor:Bool
+				
+				' Not the best of methods:
+				Local FirstChar:= S.ReadString(1) ' S.ReadByte() ' S.ReadChar()
+				
+				Select FirstChar
+					Case "~n", "~r", "~t", " " ' 10, 13, 9, 32
+						Continue
+					Case "!" ' 33
+						IsFileDescriptor = True
+					Case "{" ' 123
+						Context.Push(LastMasterPath)
+						
+						Continue
+					Case "}" ' 125
+						If (Not Context.IsEmpty) Then
+							Context.Pop()
+						Endif
+						
+						Continue
+					Default
+						IsFileDescriptor = False
+						
+						S.Seek(Origin)
+				End Select
+				
+				If (Cache_Context_Length <> Context.Length) Then
+					Cache_Context_Length = Context.Length
+					
+					Cache_Context = ""
+					
+					If (Cache_Context_Length > 0) Then
+						For Local Folder:= Eachin Context
+							Cache_Context += (Folder + "/")
+						Next
+					Endif
+				Endif
+				
+				Local Line:= S.ReadLine().Replace("~t", "")
+				
+				Local Entries:String[] = Line.Split(",")
+				
+				If (Not IsFileDescriptor) Then
+					LastMasterPath = Entries[Entries.Length-1]
+				Endif
+				
+				' Not using 'EachIn' for performance reasons:
+				For Local I:= 0 Until Entries.Length
+					Local E:= Entries[I]
+					Local E_Length:= E.Length
+					
+					E = Cache_Context + SmartClip(E, DIVIDER, E_Length)
+					
+					Print("RealPath(E): " + RealPath(E))
+					
+					If (IsFileDescriptor) Then
+						__OS_DownloadFile(__OS_Storage, RealPath(E))
+					Else
+						CreateDir(RealPath(E))
+					Endif
+				Next
+			Wend
+			
+			Return
+		End
+	#Else
+		Function __OS_StorageSupported:Bool()
+			Return False
 		End
 	#End
 #End

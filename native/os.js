@@ -15,7 +15,7 @@ var __os_appargs = [];
 var __os_currentdir = "";
 
 // This specifies the default storage.
-var __os_storage = sessionStorage;
+var __os_storage = sessionStorage; // localStorage;
 
 // This is used to force re-downloads of remote files. (Unfinished behavior)
 var __os_badcache = false;
@@ -29,6 +29,7 @@ function __os_SetAppArgs(args)
 }
 
 // This DOES NOT call 'RealPath', please call that first.
+// If 'RealPath' is not called first, please understand the effects.
 function __os_toRemotePath(path)
 {
 	var loc = document.URL;
@@ -211,7 +212,7 @@ function HostOS()
 // The implied path of this program. (Compiler fix)
 function AppPath()
 {
-	return "/data/bin" + window.location.pathname;
+	return "data/bin" + window.location.pathname;
 }
 
 // The 'AppPath' (Reserved), and any argument supplied by the user.
@@ -265,7 +266,7 @@ function FileSize(path)
 {
 	var storage = sessionStorage;
 	
-	if (downloadFile(storage, path) == null)
+	if (__os_downloadFile(storage, path) == null)
 	{
 		return 0;
 	}
@@ -329,9 +330,9 @@ function LoadString(path)
 
 function SaveString(str, path)
 {
-	document.writeln("WROTE FILE: \"" + path + "\"");
-	//document.writeln(path + " : ");
-	//document.write(str);
+	print("WRITE FILE: \"" + path + "\"");
+	
+	__os_storage.setItem(RealPath(path), str); // <-- Prefix added for debugging purposes.
 }
 
 function __os_loadStorage(realPath, storage, out)
@@ -359,10 +360,6 @@ function LoadDir(path)
 {
 	switch (path)
 	{
-		case "/data/targets":
-			return ["html5"]; break;
-		case "/data/targets/html5":
-			return ["modules", "template", "TARGET.MONKEY"]; break;
 		default:
 			var rp = RealPath(path);
 			
@@ -380,8 +377,6 @@ function LoadDir(path)
 
 function CreateDir(path)
 {
-	alert("CREATE DIR: " + path);
-	
 	__os_storage.setItem(RealPath(path), "// "+path); // <-- Prefix added for debugging purposes.
 	
 	return true;
@@ -389,16 +384,12 @@ function CreateDir(path)
 
 function DeleteDir(path)
 {
-	print("DELETE DIR: " + path);
-	
 	return __os_deleteFileEntries(RealPath(path));
 }
 
+// I'm unsure if this is working 100%, but it helps get transcc running:
 function ChangeDir(path)
 {
-	print("CHANGE DIR: " + path);
-	print("PREV__CDIR: " + __os_currentdir);
-	
 	var first = __os_currentdir.indexOf("/");
 	var second = __os_currentdir.lastIndexOf("/");
 	
@@ -414,8 +405,6 @@ function ChangeDir(path)
 	
 	__os_currentdir = path;
 	
-	print("CHANGE__CDIR: " + __os_currentdir);
-	
 	return __os_currentdir;
 }
 
@@ -426,9 +415,7 @@ function CurrentDir()
 
 function Execute(cmd)
 {
-	alert("CMD: " + cmd);
-	
-	document.writeln("CMD: " + cmd);
+	__exec(cmd);
 }
 
 function ExitApp(retCode)
