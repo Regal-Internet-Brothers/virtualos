@@ -3,6 +3,8 @@ Strict
 Public
 
 ' Preprocessor related:
+#VIRTUALOS_FLAG_OS = True
+
 #If TARGET = "html5"
 	#VIRTUALOS_JS_TARGET = True
 #End
@@ -20,6 +22,12 @@ Public
 	#End
 #Elseif LANG = "cpp" And TARGET <> "win8"
 	#VIRTUALOS_REAL = True
+#End
+
+#If VIRTUALOS_IMPLEMENTED
+	#If VIRTUALOS_FLAG_OS
+		#BRL_OS_IMPLEMENTED = True
+	#End
 #End
 
 ' Imports (Public):
