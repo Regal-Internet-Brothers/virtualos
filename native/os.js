@@ -23,7 +23,7 @@ var __os_badcache = false;
 // Functions:
 
 // Extensions:
-function __os_SetAppArgs(args)
+function __os_setAppArgs(args)
 {
 	__os_appargs = args
 }
