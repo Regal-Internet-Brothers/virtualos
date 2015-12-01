@@ -6,6 +6,9 @@ var FILETYPE_NONE = 0;
 var FILETYPE_FILE = 1;
 var FILETYPE_DIR = 2;
 
+// Internal:
+var __os_directory_prefix = "//";
+
 // Global variable(s):
 
 // This is used to supply arguments to the application.
@@ -70,7 +73,7 @@ function __os_downloadFileUsingRep(storage, url, rep)
 		
 		if (data != null)
 		{
-			storage.setItem(rep, data);
+			__os_createFileEntryWith(storage, rep, data);
 		}
 		
 		return data;
@@ -79,7 +82,7 @@ function __os_downloadFileUsingRep(storage, url, rep)
 	return repValue;
 }
 
-// This converts 'path' into a url, and represents the enclosed data with 'path'. (Calls 'downloadFileFrom')
+// This converts 'realPath' into a url, and represents the enclosed data with 'realPath'. (Calls 'downloadFileFrom')
 function __os_downloadFile(storage, realPath)
 {
 	return __os_downloadFileUsingRep(storage, __os_toRemotePath(realPath), realPath);
@@ -143,7 +146,7 @@ function __os_testSupportedFiles(lCasePath)
 	return false;
 }
 
-// This checks if the file at 'path' is stored or not.
+// This checks if the file at 'realPath' is stored or not.
 function __os_storageLookup(realPath)
 {
 	var ls = localStorage.getItem(realPath);
@@ -161,7 +164,17 @@ function __os_storageLookup(realPath)
 	}
 }
 
-// This gets a file using 'path' from a remote host.
+function __os_createFileEntryWith(storage, rep, data)
+{
+	storage.setItem(rep, data);
+}
+
+function __os_createFileEntry(rep, data)
+{
+	__os_createFileEntryWith(__os_storage, rep, data);
+}
+
+// This gets a file using 'realPath' from a remote host.
 // If this is already present in some kind of storage, it uses the cache.
 function __os_getFile(realPath)
 {
@@ -249,7 +262,7 @@ function FileType(path)
 	if (file != null)
 	{
 		//if (__os_testSupportedFiles(realPath.toLowerCase()))
-		if (realPath.indexOf(".") > -1 && file.indexOf("//") != 0)
+		if (realPath.indexOf(".") != -1 && file.indexOf(__os_directory_prefix) != 0)
 		{
 			return FILETYPE_FILE;
 		}
@@ -264,21 +277,22 @@ function FileType(path)
 
 function FileSize(path)
 {
+	var rpath = RealPath(path);
 	var storage = sessionStorage;
 	
-	if (__os_downloadFile(storage, path) == null)
+	var f = __os_downloadFile(storage, rpath);
+	
+	if (f == null)
 	{
 		return 0;
 	}
 	
-	return storage.getItem(path).length;
-}
-
-function FileTime(path)
-{
-	alert("Unsupported operation | FileTime: " + path);
+	if (f.startsWith(__os_directory_prefix))
+	{
+		return 0;
+	}
 	
-	return 0;
+	return f.length;
 }
 
 function CopyFile(src, dst)
@@ -293,7 +307,7 @@ function CopyFile(src, dst)
 	
 	var rdst = RealPath(dst);
 	
-	__os_storage.setItem(rdst, f);
+	__os_createFileEntry(rdst, f);
 	
 	// Return the default response.
 	return true;
@@ -330,9 +344,9 @@ function LoadString(path)
 
 function SaveString(str, path)
 {
-	print("WRITE FILE: \"" + path + "\"");
+	//print("WRITE FILE: \"" + path + "\"");
 	
-	__os_storage.setItem(RealPath(path), str); // <-- Prefix added for debugging purposes.
+	__os_createFileEntry(RealPath(path), str);
 }
 
 function __os_loadStorage(realPath, storage, out)
@@ -377,7 +391,7 @@ function LoadDir(path)
 
 function CreateDir(path)
 {
-	__os_storage.setItem(RealPath(path), "// "+path); // <-- Prefix added for debugging purposes.
+	__os_createFileEntry(RealPath(path), "// " + path); // <-- Prefix added for debugging purposes.
 	
 	return true;
 }
@@ -415,7 +429,10 @@ function CurrentDir()
 
 function Execute(cmd)
 {
-	__exec(cmd);
+	if (typeof __exec == 'function')
+	{
+		__exec(cmd);
+	}
 }
 
 function ExitApp(retCode)

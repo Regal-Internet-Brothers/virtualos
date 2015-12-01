@@ -12,6 +12,7 @@ Public
 #If VIRTUALOS_JS_TARGET
 	#VIRTUALOS_IMPLEMENTED = True
 	#VIRTUALOS_MAP_ENV = True
+	#VIRTUALOS_MAP_FILETIMES = True
 	#VIRTUALOS_EXTENSION_DL = True
 	#VIRTUALOS_EXTENSION_VFILE = True
 	#VIRTUALOS_EXTENSION_REMOTEPATH = True
@@ -53,6 +54,8 @@ Private
 		Import regal.ioutil.stringstream
 	#End
 	
+	Import monkey.map
+	
 	#If VIRTUALOS_JS_TARGET
 		'Import dom
 	#End
@@ -67,6 +70,8 @@ Public
 	Const FILETYPE_NONE:=		0
 	Const FILETYPE_FILE:=		1
 	Const FILETYPE_DIR:=		2
+	
+	Const FILETIME_UNAVAILABLE:= 0
 	
 	' External bindings:
 	Extern
@@ -112,7 +117,11 @@ Public
 	Function RealPath:String(Path:String)
 	Function FileType:Int(Path:String)
 	Function FileSize:Int(Path:String)
-	Function FileTime:Int(Path:String)
+	
+	#If Not VIRTUALOS_MAP_FILETIMES
+		Function FileTime:Int(Path:String)
+	#End
+	
 	Function CopyFile:Bool(Src:String, Dst:String)
 	Function DeleteFile:Bool(Path:String)
 	Function LoadString:String(Path:String)
@@ -160,7 +169,13 @@ Public
 	' Global variable(s) (Private):
 	Private
 	
-	Global __OS_Env:= New StringMap<String>()
+	#If VIRTUALOS_MAP_ENV
+		Global __OS_Env:= New StringMap<String>()
+	#End
+	
+	#If VIRTUALOS_MAP_FILETIMES
+		Global __OS_FileTimes:= New StringMap<Int>()
+	#End
 	
 	Public
 	
@@ -176,6 +191,12 @@ Public
 		
 		Function GetEnv:String(name:String)
 			Return __OS_Env.Get(name)
+		End
+	#End
+	
+	#If VIRTUALOS_MAP_FILETIMES
+		Function FileTime:Int(Path:String)
+			Return __OS_FileTimes.Get(RealPath(Path)) ' FILETIME_UNAVAILABLE
 		End
 	#End
 	
@@ -355,6 +376,14 @@ Public
 	#End
 	
 	' Extensions:
+	#If VIRTUALOS_MAP_FILETIMES
+		Function __OS_SetFileTime:Void(RealPath:String, Time:Int)
+			__OS_FileTimes.Set(RealPath, Time)
+			
+			Return
+		End
+	#End
+	
 	#If VIRTUALOS_EXTENSION_VFILE
 		#If VIRTUALOS_EXTENSION_DL
 			Function __OS_AddFileSystem:Void(URL:String)
@@ -440,12 +469,31 @@ Public
 					
 					E = Cache_Context + SmartClip(E, DIVIDER, E_Length)
 					
-					Print("RealPath(E): " + RealPath(E))
+					' Extensions:
+					Local Time_First:= E.Find("[")
+					
+					If (Time_First <> STRING_INVALID_LOCATION) Then
+						Local Processed_E:= E[..Time_First]
+						
+						#If VIRTUALOS_MAP_FILETIMES
+							Local Time_Second:= E.Find("]")
+							
+							If (Time_Second <> STRING_INVALID_LOCATION) Then
+								Local FTime:= Int(E[Time_First+1..Time_Second])
+								
+								If (FTime <> FILETIME_UNAVAILABLE) Then
+									__OS_SetFileTime(RealPath(Processed_E), FTime)
+								Endif
+							Endif
+						#End
+						
+						E = Processed_E
+					Endif
 					
 					If (IsFileDescriptor) Then
 						__OS_DownloadFile(__OS_Storage, RealPath(E))
 					Else
-						CreateDir(RealPath(E))
+						CreateDir(E)
 					Endif
 				Next
 			Wend
