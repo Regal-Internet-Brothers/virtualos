@@ -53,12 +53,19 @@ function __os_download(url)
 {
 	var xhr = new XMLHttpRequest();
 	
-	xhr.open("GET", url, false); // "HEAD"
-	xhr.send(null);
-	
-	if (xhr.status == 200 || xhr.status == 304 || xhr.status == 0)
+	try
 	{
-		return xhr.responseText;
+		xhr.open("GET", url, false); // "HEAD"
+		xhr.send(null);
+		
+		if (xhr.status == 200 || xhr.status == 304 || xhr.status == 0)
+		{
+			return xhr.responseText;
+		}
+	}
+	catch (ex)
+	{
+		// Nothing so far.
 	}
 }
 
