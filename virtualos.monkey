@@ -19,7 +19,7 @@ Public
 	'#VIRTUALOS_REAL_FILEPATH = True
 	
 	#If CONFIG = "debug"
-		#VIRTUALOS_DEBUG = True
+		'#VIRTUALOS_DEBUG = True
 	#End
 #Elseif LANG = "cpp" And TARGET <> "win8"
 	#VIRTUALOS_REAL = True
@@ -120,10 +120,14 @@ Public
 	
 	#If Not VIRTUALOS_MAP_FILETIMES
 		Function FileTime:Int(Path:String)
+		
+		Function CopyFile:Bool(Src:String, Dst:String)
+		Function DeleteFile:Bool(Path:String)
+	#Else
+		Function _CopyFile:Bool(Src:String, Dst:String)="CopyFile"
+		Function _DeleteFile:Bool(Path:String)="DeleteFile"
 	#End
 	
-	Function CopyFile:Bool(Src:String, Dst:String)
-	Function DeleteFile:Bool(Path:String)
 	Function LoadString:String(Path:String)
 	Function SaveString:Int(Str:String, Path:String)
 	Function LoadDir:String[](Path:String)
@@ -197,6 +201,26 @@ Public
 	#If VIRTUALOS_MAP_FILETIMES
 		Function FileTime:Int(Path:String)
 			Return __OS_FileTimes.Get(RealPath(Path)) ' FILETIME_UNAVAILABLE
+		End
+		
+		Function CopyFile:Bool(Src:String, Dst:String)
+			Local Result:= _CopyFile(Src, Dst)
+			
+			If (Result) Then
+				__OS_SetFileTime(RealPath(Dst), FileTime(Src)) ' ; Return True
+			Endif
+			
+			Return Result ' False
+		End
+		
+		Function DeleteFile:Bool(Path:String)
+			Local Result:= _DeleteFile(Path)
+			
+			If (Result) Then
+				__OS_RemoveFileTime(RealPath(Path))
+			Endif
+			
+			Return Result
 		End
 	#End
 	
@@ -382,6 +406,12 @@ Public
 			
 			Return
 		End
+		
+		Function __OS_RemoveFileTime:Void(RealPath:String)
+			__OS_FileTimes.Remove(RealPath)
+			
+			Return
+		End
 	#End
 	
 	#If VIRTUALOS_EXTENSION_VFILE
@@ -403,15 +433,25 @@ Public
 			Return
 		End
 		
+		Function __OS_ParseFileSystem_Update_ContextRep:String(Context:Stack<String>)
+			Local Rep:String
+			
+			For Local Folder:= Eachin Context
+				Rep += (Folder + "/")
+			Next
+			
+			Return Rep
+		End
+		
 		' A simple parser that takes each line of a 'Stream', and decodes a folder structure from the input.
-		Function __OS_ParseFileSystem:Void(S:Stream, Context:Stack<String>) ' StringStream
+		' The 'OpenPrefix' argument is used to toggle adding an extra slash before generated paths.
+		Function __OS_ParseFileSystem:Void(S:Stream, Context:Stack<String>, OpenPrefix:Bool=True) ' StringStream
 			' Constant variable(s):
 			Const DIVIDER:= ASCII_CHARACTER_SPACE
 			
 			' Local variable(s):
 			Local LastMasterPath:String
 			
-			Local Cache_Context_Length:= 0
 			Local Cache_Context:String
 			
 			While (Not S.Eof) ' Eof()
@@ -429,11 +469,16 @@ Public
 					Case "{" ' 123
 						Context.Push(LastMasterPath)
 						
+						' Update the current context-cache.
+						Cache_Context = __OS_ParseFileSystem_Update_ContextRep(Context)
+						
 						Continue
 					Case "}" ' 125
 						If (Not Context.IsEmpty) Then
 							Context.Pop()
 						Endif
+						
+						Cache_Context = __OS_ParseFileSystem_Update_ContextRep(Context)
 						
 						Continue
 					Default
@@ -442,19 +487,7 @@ Public
 						S.Seek(Origin)
 				End Select
 				
-				If (Cache_Context_Length <> Context.Length) Then
-					Cache_Context_Length = Context.Length
-					
-					Cache_Context = ""
-					
-					If (Cache_Context_Length > 0) Then
-						For Local Folder:= Eachin Context
-							Cache_Context += (Folder + "/")
-						Next
-					Endif
-				Endif
-				
-				Local Line:= S.ReadLine().Replace("~t", "")
+				Local Line:= S.ReadLine() ' Line.Replace("~t", "")
 				
 				Local Entries:String[] = Line.Split(",")
 				
@@ -491,7 +524,7 @@ Public
 					Endif
 					
 					If (IsFileDescriptor) Then
-						__OS_DownloadFile(__OS_Storage, RealPath(E))
+						__OS_DownloadFile(__OS_Storage, RealPath(E)) ' <-- Possibly temporary.
 					Else
 						CreateDir(E)
 					Endif

@@ -20,6 +20,9 @@ var __os_currentdir = "";
 // This specifies the default storage.
 var __os_storage = sessionStorage; // localStorage;
 
+// A collection of loaded directories in the virtual file-system.
+var __os_directories = {};
+
 // This is used to force re-downloads of remote files. (Unfinished behavior)
 var __os_badcache = false;
 
@@ -32,35 +35,71 @@ function __os_setAppArgs(args)
 }
 
 // This DOES NOT call 'RealPath', please call that first.
-// If 'RealPath' is not called first, please understand the effects.
-function __os_toRemotePath(path)
+// If 'RealPath' is not called first, please understand the effects (Invalid global directory).
+function __os_toRemotePath(realPath)
 {
-	var loc = document.URL;
+	var url = window.location.href; // document.URL;
 	
-	var finalSlash = loc.lastIndexOf('/');
+	var start = url.indexOf("//");
 	
-	if (!path.startsWith("/"))
+	if (start == -1)
 	{
-		finalSlash += 1;
+		start = 0;
+	}
+	else
+	{
+		start += 2;
 	}
 	
-	return loc.substring(0, finalSlash) + path;
+	var output = url.substring(0, url.indexOf("/", start));
+	
+	if (realPath.indexOf("/") != 0)
+	{
+		output += "/";
+	}
+	
+	return (output + realPath);
 }
 
 // This downloads from 'url', and returns the file's data.
 // If no file was found, the return-value is undefined.
-function __os_download(url)
+function __os_download(url, secondAttempt)
 {
 	var xhr = new XMLHttpRequest();
 	
 	try
 	{
 		xhr.open("GET", url, false); // "HEAD"
+		
+		if (secondAttempt)
+		{
+			//xhr.overrideMimeType('text/plain');
+		}
+		
+		// For now, we don't care about file updates.
+		// This is something to look into later:
+		xhr.overrideMimeType('text/plain');
+		xhr.setRequestHeader("Cache-Control", "no-cache");
+		xhr.setRequestHeader("Pragma", "no-cache");
+		xhr.setRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
+		//xhr.setRequestHeader("Cache-Control", "must-revalidate");
+		
 		xhr.send(null);
 		
-		if (xhr.status == 200 || xhr.status == 304 || xhr.status == 0)
+		switch (xhr.status)
 		{
-			return xhr.responseText;
+			case 304:
+				if (!xhr.responseText && !secondAttempt)
+				{
+					return __os_download(url, true);
+				}
+				
+				//return xhr.responseText; break;
+			case 0:
+			case 200:
+				return xhr.responseText;
+				
+				break;
 		}
 	}
 	catch (ex)
@@ -125,6 +164,36 @@ function __os_fixDir(exactPath)
 	return final;
 }
 
+function __os_globalDir()
+{
+	var page = window.location.pathname;
+	
+	var lastSlash = page.lastIndexOf("/");
+	
+	return page.substring(0, lastSlash); // "data"
+}
+
+// This checks if a file at 'realPath' could exist in the current virtual file-system.
+function __os_fileCouldExist(realPath, checkType)
+{
+	// Since we don't have an entry, check this file's parent directory.
+	// If it exists, then we know it could be a valid file.
+	if (__os_storageLookup(realPath.substring(0, realPath.lastIndexOf("/"))) != null)
+	{
+		if (checkType)
+		{
+			if (!__os_testSupportedFiles(realPath.toLowerCase()))
+			{
+				return false;
+			}
+		}
+		
+		return true;
+	}
+	
+	return false;
+}
+
 // This checks if any of the 'types' specified match 'lCasePath'. (Used internally)
 function __os_supportedFile(lCasePath, types)
 {
@@ -154,13 +223,16 @@ function __os_testSupportedFiles(lCasePath)
 }
 
 // This checks if the file at 'realPath' is stored or not.
-function __os_storageLookup(realPath)
+function __os_storageLookup(realPath, isDir)
 {
-	var ls = localStorage.getItem(realPath);
-	
-	if (ls != null)
+	if (__os_directories.hasOwnProperty(realPath))
 	{
-		return ls;
+		return __os_directories[realPath];
+	}
+	
+	if (isDir)
+	{
+		return;
 	}
 	
 	var ss = sessionStorage.getItem(realPath);
@@ -169,6 +241,13 @@ function __os_storageLookup(realPath)
 	{
 		return ss;
 	}
+	
+	var ls = localStorage.getItem(realPath);
+	
+	if (ls != null)
+	{
+		return ls;
+	}
 }
 
 function __os_createFileEntryWith(storage, rep, data)
@@ -176,9 +255,16 @@ function __os_createFileEntryWith(storage, rep, data)
 	storage.setItem(rep, data);
 }
 
-function __os_createFileEntry(rep, data)
+function __os_createFileEntry(rep, data, isDir)
 {
-	__os_createFileEntryWith(__os_storage, rep, data);
+	if (isDir || data.indexOf(__os_directory_prefix) == 0)
+	{
+		__os_directories[rep] = data;
+	}
+	else
+	{
+		__os_createFileEntryWith(__os_storage, rep, data);
+	}
 }
 
 // This gets a file using 'realPath' from a remote host.
@@ -195,9 +281,30 @@ function __os_getFile(realPath)
 	return f;
 }
 
-function __os_deleteFileEntries(realPath)
+function __os_deleteFileEntries(realPath, isDir)
 {
+	if (__os_directories.hasOwnProperty(realPath)) // isDir
+	{
+		delete __os_directories[realPath];
+		
+		return true;
+	}
+	
+	if (isDir)
+	{
+		return false;
+	}
+	
 	var response = false;
+	
+	var ss = sessionStorage.getItem(realPath);
+	
+	if (ss != null)
+	{
+		sessionStorage.removeItem(realPath); // ss;
+		
+		response = true;
+	}
 	
 	// Test for 'realPath', and if found, remove it:
 	var ls = localStorage.getItem(realPath);
@@ -205,15 +312,6 @@ function __os_deleteFileEntries(realPath)
 	if (ls != null)
 	{
 		localStorage.removeItem(realPath); // ls;
-		
-		response = true;
-	}
-	
-	var ss = sessionStorage.getItem(realPath);
-	
-	if (ss != null)
-	{
-		sessionStorage.removeItem(realPath); // ss;
 		
 		response = true;
 	}
@@ -232,7 +330,22 @@ function HostOS()
 // The implied path of this program. (Compiler fix)
 function AppPath()
 {
-	return "data/bin" + window.location.pathname;
+	var page = window.location.pathname;
+	
+	var lastSlash = page.lastIndexOf("/");
+	
+	var x = page.substring(1, Math.max(lastSlash, 1));
+	
+	if (x.length != 0)
+	{
+		x += "/"
+	}
+	
+	var result = x + "data/bin/" + page.substring(lastSlash+1);
+	
+	return result;
+	
+	//return RealPath("data/bin/MonkeyGame.html"); // window.location.pathname; // __os_globalDir();
 }
 
 // The 'AppPath' (Reserved), and any argument supplied by the user.
@@ -244,32 +357,62 @@ function AppArgs()
 // The "real" (Local) path of 'f'.
 function RealPath(path)
 {
-	if (path.indexOf(__os_currentdir) != 0)
+	if (path.indexOf("//") == 0)
 	{
-		//if (!path.startsWith("/"))
-		if (path.indexOf("/") != 0)
+		// Nothing so far.
+	}
+	else
+	{
+		var x = __os_currentdir;
+		
+		if (x.indexOf("/") == 0) // if (!path.startsWith("/"))
 		{
-			path = __os_currentdir + "/" + path; // <- Unsure if I should be doing this.
+			x = __os_globalDir() + x;
 		}
 		else
 		{
-			path = __os_currentdir + path;
+			x = __os_globalDir() + "/" + x;
+		}
+		
+		if ((__os_currentdir.length != 0)) // && (x.lastIndexOf("/") != (__os_currentdir.length-1))
+		{
+			x += "/";
+		}
+		
+		if (path.indexOf(x) != 0)
+		{
+			path = (x + path);
 		}
 	}
 	
-	return __os_fixDir(path);
+	var result = __os_fixDir(path);
+	
+	return result;
 }
 
 // This attempts to recognize the "file-type" of 'path'. (Uses supported files)
 function FileType(path)
 {
 	var realPath = RealPath(path);
-	var file = __os_getFile(realPath);
+	
+	// Grab the local entry, if any:
+	var file = __os_storageLookup(realPath);
+	
+	// Check if we don't have an entry to view:
+	if (file == null)
+	{
+		// Check if we could load this file using the current file-system:
+		if (__os_fileCouldExist(realPath))
+		{
+			// Try to load our file from the server.
+			file = __os_getFile(realPath);
+		}
+	}
 	
 	if (file != null)
 	{
 		//if (__os_testSupportedFiles(realPath.toLowerCase()))
-		if (realPath.indexOf(".") != -1 && file.indexOf(__os_directory_prefix) != 0)
+		if (file.indexOf(__os_directory_prefix) != 0)
 		{
 			return FILETYPE_FILE;
 		}
@@ -351,8 +494,6 @@ function LoadString(path)
 
 function SaveString(str, path)
 {
-	//print("WRITE FILE: \"" + path + "\"");
-	
 	__os_createFileEntry(RealPath(path), str);
 }
 
@@ -377,6 +518,27 @@ function __os_loadStorage(realPath, storage, out)
 	}
 }
 
+function __os_loadDirectories(realPath, out)
+{
+	for (var folder in __os_directories)
+	{
+		if (folder == realPath)
+		{
+			continue;
+		}
+		
+		var parentFolder = folder.indexOf(realPath);
+		var cutoff = parentFolder + realPath.length + 1; // <-- Offset for future modification.
+		
+		if (parentFolder == 0 && folder.indexOf("/", cutoff) == -1)
+		{
+			var entry = folder.substring(cutoff);
+			
+			out.push(entry);
+		}
+	}
+}
+
 function LoadDir(path)
 {
 	switch (path)
@@ -390,6 +552,8 @@ function LoadDir(path)
 			__os_loadStorage(rp, localStorage, out);
 			__os_loadStorage(rp, sessionStorage, out);
 			
+			__os_loadDirectories(rp, out);
+			
 			return out; break;
 	}
 	
@@ -398,33 +562,40 @@ function LoadDir(path)
 
 function CreateDir(path)
 {
-	__os_createFileEntry(RealPath(path), "// " + path); // <-- Prefix added for debugging purposes.
+	__os_createFileEntry(RealPath(path), __os_directory_prefix + path, true); // <-- Prefix added for debugging purposes.
 	
 	return true;
 }
 
 function DeleteDir(path)
 {
-	return __os_deleteFileEntries(RealPath(path));
+	return __os_deleteFileEntries(RealPath(path), true);
 }
 
 // I'm unsure if this is working 100%, but it helps get transcc running:
 function ChangeDir(path)
 {
+	__os_currentdir = path;
+	
 	var first = __os_currentdir.indexOf("/");
 	var second = __os_currentdir.lastIndexOf("/");
 	
-	if (first == 0 || second == __os_currentdir.length-1)
+	// Could be changed to boolean logic:
+	if (first == 0)
 	{
-		__os_currentdir = __os_currentdir.substring(first+1, (second != -1) ? second : __os_currentdir.length);
+		first = 1;
+	}
+	else
+	{
+		first = 0;
 	}
 	
-	if (!__os_currentdir.startsWith("data"))
+	if (second != __os_currentdir.length-1)
 	{
-		__os_currentdir = "data/" + __os_currentdir;
+		second = __os_currentdir.length;
 	}
 	
-	__os_currentdir = path;
+	__os_currentdir = __os_currentdir.substring(first, second);
 	
 	return __os_currentdir;
 }
