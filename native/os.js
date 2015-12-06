@@ -334,9 +334,9 @@ function AppPath()
 	
 	var lastSlash = page.lastIndexOf("/");
 	
-	var x = page.substring(1, Math.max(lastSlash, 1));
+	var x = page.substring(0, Math.max(lastSlash, 1));
 	
-	if (x.length != 0)
+	if (x != "/" && x.length != 0)
 	{
 		x += "/"
 	}
@@ -357,7 +357,7 @@ function AppArgs()
 // The "real" (Local) path of 'f'.
 function RealPath(path)
 {
-	if (path.indexOf("//") == 0)
+	if (path.indexOf("/") == 0)
 	{
 		// Nothing so far.
 	}
@@ -437,7 +437,8 @@ function FileSize(path)
 		return 0;
 	}
 	
-	if (f.startsWith(__os_directory_prefix))
+	//if (f.startsWith(__os_directory_prefix))
+	if (f.indexOf(__os_directory_prefix) == 0)
 	{
 		return 0;
 	}
@@ -575,6 +576,20 @@ function DeleteDir(path)
 // I'm unsure if this is working 100%, but it helps get transcc running:
 function ChangeDir(path)
 {
+	var realPos = __os_globalDir();
+	
+	if (path.indexOf(realPos) == 0)
+	{
+		var newStart = realPos.length;
+		
+		if (path.indexOf("/") == newStart)
+		{
+			newStart += 1;
+		}
+		
+		path = path.substring(newStart); // ..
+	}
+	
 	__os_currentdir = path;
 	
 	var first = __os_currentdir.indexOf("/");
