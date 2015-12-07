@@ -166,6 +166,8 @@ Public
 	
 	#If VIRTUALOS_EXTENSION_VFILE
 		Function __OS_StorageSupported:Bool()="__os_storageSupported"
+		'Function __OS_CreateFileEntry:Void(Rep:String, Data:String, IsDir:Bool=False)="__os_createFileEntry"
+		Function __OS_CreateFileLink:Void(Rep:String)="__os_createFileLink"
 	#End
 	
 	Public
@@ -524,7 +526,7 @@ Public
 					Endif
 					
 					If (IsFileDescriptor) Then
-						__OS_DownloadFile(__OS_Storage, RealPath(E)) ' <-- Possibly temporary.
+						__OS_CreateFileLink(RealPath(E)) ' __OS_DownloadFile(__OS_Storage, RealPath(E))
 					Else
 						CreateDir(E)
 					Endif

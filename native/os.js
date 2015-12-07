@@ -8,6 +8,7 @@ var FILETYPE_DIR = 2;
 
 // Internal:
 var __os_directory_prefix = "//";
+var __os_emptyFile_Symbol = "||EMPTY||";
 
 // Global variable(s):
 
@@ -65,6 +66,8 @@ function __os_toRemotePath(realPath)
 // If no file was found, the return-value is undefined.
 function __os_download(url, secondAttempt)
 {
+	//print("Downloading: " + url);
+	
 	var xhr = new XMLHttpRequest();
 	
 	try
@@ -109,11 +112,11 @@ function __os_download(url, secondAttempt)
 }
 
 // This downloads a file from 'url' and represents it with 'rep'.
-function __os_downloadFileUsingRep(storage, url, rep)
+function __os_downloadFileUsingRep(storage, url, rep, isEmpty) // isEmpty=false
 {
 	var repValue = storage.getItem(rep);
 	
-	if (__os_badcache || repValue == null) // === undefined
+	if (isEmpty || repValue == null || __os_badcache || repValue == __os_emptyFile_Symbol) // === undefined
 	{
 		var data = __os_download(url);
 		
@@ -129,9 +132,9 @@ function __os_downloadFileUsingRep(storage, url, rep)
 }
 
 // This converts 'realPath' into a url, and represents the enclosed data with 'realPath'. (Calls 'downloadFileFrom')
-function __os_downloadFile(storage, realPath)
+function __os_downloadFile(storage, realPath, isEmpty) // isEmpty=false
 {
-	return __os_downloadFileUsingRep(storage, __os_toRemotePath(realPath), realPath);
+	return __os_downloadFileUsingRep(storage, __os_toRemotePath(realPath), realPath, isEmpty);
 }
 
 // This specifies if this browser supports native file storage.
@@ -257,7 +260,7 @@ function __os_createFileEntryWith(storage, rep, data)
 
 function __os_createFileEntry(rep, data, isDir)
 {
-	if (isDir || data.indexOf(__os_directory_prefix) == 0)
+	if (isDir || data.indexOf(__os_directory_prefix) == 0) // <-- Somewhat inefficient.
 	{
 		__os_directories[rep] = data;
 	}
@@ -267,15 +270,25 @@ function __os_createFileEntry(rep, data, isDir)
 	}
 }
 
+// This creates a "file link". "File links" are basically 'to-be-loaded'
+// symbols, that the file-system uses to reduce ahead-of-time requests.
+// This command is abstract from the underlying storage system.
+function __os_createFileLink(rep)
+{
+	__os_createFileEntry(rep, __os_emptyFile_Symbol, false);
+}
+
 // This gets a file using 'realPath' from a remote host.
 // If this is already present in some kind of storage, it uses the cache.
-function __os_getFile(realPath)
+function __os_getFile(realPath, isEmpty)
 {
 	var f = __os_storageLookup(realPath);
 	
-	if (f == null)
+	var isEmpty = false;
+	
+	if (f == null || isEmpty != null || (isEmpty = (f == __os_emptyFile_Symbol))) // Set 'isEmpty', and check it.
 	{
-		return __os_downloadFile(__os_storage, realPath);
+		return __os_downloadFile(__os_storage, realPath, isEmpty);
 	}
 	
 	return f;
@@ -398,14 +411,16 @@ function FileType(path)
 	// Grab the local entry, if any:
 	var file = __os_storageLookup(realPath);
 	
+	var isEmpty;
+	
 	// Check if we don't have an entry to view:
-	if (file == null)
+	if (file == null || (isEmpty = (file == __os_emptyFile_Symbol))) // Set 'isEmpty', and check it.
 	{
 		// Check if we could load this file using the current file-system:
-		if (__os_fileCouldExist(realPath))
+		if (isEmpty || __os_fileCouldExist(realPath))
 		{
 			// Try to load our file from the server.
-			file = __os_getFile(realPath);
+			file = __os_getFile(realPath, isEmpty);
 		}
 	}
 	
