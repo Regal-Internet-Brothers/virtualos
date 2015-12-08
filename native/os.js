@@ -30,6 +30,22 @@ var __os_badcache = false;
 // Functions:
 
 // Extensions:
+
+// This copies the global 'os' context of the 'parent' environment.
+function __os_inheritParent()
+{
+	//__os_appargs = parent.__os_appargs.slice();
+	__os_currentdir = parent.__os_currentdir;
+	__os_storage = parent.__os_storage;
+	
+	for (var p in parent.__os_directories)
+	{
+		__os_directories[p] = parent.__os_directories[p];
+	}
+	
+	//__os_badcache = parent.__os_badcache;
+}
+
 function __os_setAppArgs(args)
 {
 	__os_appargs = args
@@ -64,7 +80,7 @@ function __os_toRemotePath(realPath)
 
 // This downloads from 'url', and returns the file's data.
 // If no file was found, the return-value is undefined.
-function __os_download(url, secondAttempt)
+function __os_download(url)
 {
 	//print("Downloading: " + url);
 	
@@ -73,11 +89,7 @@ function __os_download(url, secondAttempt)
 	try
 	{
 		xhr.open("GET", url, false); // "HEAD"
-		
-		if (secondAttempt)
-		{
-			//xhr.overrideMimeType('text/plain');
-		}
+		//xhr.responseType = "arraybuffer";
 		
 		// For now, we don't care about file updates.
 		// This is something to look into later:
@@ -91,14 +103,8 @@ function __os_download(url, secondAttempt)
 		
 		switch (xhr.status)
 		{
-			case 304:
-				if (!xhr.responseText && !secondAttempt)
-				{
-					return __os_download(url, true);
-				}
-				
-				//return xhr.responseText; break;
 			case 0:
+			case 304:
 			case 200:
 				return xhr.responseText;
 				

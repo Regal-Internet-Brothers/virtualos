@@ -21,7 +21,7 @@ Public
 	#If CONFIG = "debug"
 		'#VIRTUALOS_DEBUG = True
 	#End
-#Elseif LANG = "cpp" And TARGET <> "win8"
+#Elseif LANG = "cpp" And TARGET <> "win8" And TARGET <> "ios"
 	#VIRTUALOS_REAL = True
 #End
 
