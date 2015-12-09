@@ -4,6 +4,7 @@ Public
 
 ' Preprocessor related:
 #VIRTUALOS_FLAG_OS = True
+#VIRTUALOS_STANDALONE = True
 
 #If TARGET = "html5"
 	#VIRTUALOS_JS_TARGET = True
@@ -48,10 +49,15 @@ Public
 Private
 
 #If VIRTUALOS_IMPLEMENTED
-	Import regal.stringutil
-	
-	#If VIRTUALOS_EXTENSION_DL And VIRTUALOS_EXTENSION_VFILE
-		Import regal.ioutil.stringstream
+	#If Not VIRTUALOS_STANDALONE
+		Import regal.stringutil
+		
+		#If VIRTUALOS_EXTENSION_DL And VIRTUALOS_EXTENSION_VFILE
+			Import regal.ioutil.stringstream
+		#End
+	#Else
+		Import brl.databuffer
+		Import brl.datastream
 	#End
 	
 	Import monkey.map
@@ -64,7 +70,7 @@ Private
 Public
 
 #If VIRTUALOS_IMPLEMENTED
-	' Constant variable(s):
+	' Constant variable(s) (Public):
 	
 	' File-types (Must be the same across borders):
 	Const FILETYPE_NONE:=		0
@@ -72,6 +78,15 @@ Public
 	Const FILETYPE_DIR:=		2
 	
 	Const FILETIME_UNAVAILABLE:= 0
+	
+	' Constant variable(s) (Private):
+	Private
+	
+	#If VIRTUALOS_STANDALONE
+		Const STRING_INVALID_LOCATION:= -1
+	#End
+	
+	Public
 	
 	' External bindings:
 	Extern
@@ -184,7 +199,7 @@ Public
 	
 	Public
 	
-	' Functions (Monkey):
+	' Functions (Monkey) (Public):
 	
 	' API:
 	#If VIRTUALOS_MAP_ENV
@@ -420,7 +435,15 @@ Public
 			Function __OS_AddFileSystem:Void(URL:String)
 				Local FileData:= __OS_Download(URL)
 				
-				Local SS:= New StringStream(FileData, ,,,, True)
+				#If Not VIRTUALOS_STANDALONE
+					Local SS:= New StringStream(FileData, ,,,, True)
+				#Else
+					Local Buf:= New DataBuffer(FileData.Length)
+					
+					Buf.PokeString(0, FileData)
+					
+					Local SS:= New DataStream(Buf)
+				#End
 				
 				__OS_ParseFileSystem(SS)
 				
@@ -448,7 +471,11 @@ Public
 		' The 'OpenPrefix' argument is used to toggle adding an extra slash before generated paths.
 		Function __OS_ParseFileSystem:Void(S:Stream, Context:Stack<String>, OpenPrefix:Bool=True) ' StringStream
 			' Constant variable(s):
-			Const DIVIDER:= ASCII_CHARACTER_SPACE
+			#If Not VIRTUALOS_STANDALONE
+				Const DIVIDER:= ASCII_CHARACTER_SPACE
+			#Else
+				Const DIVIDER:= 32
+			#End
 			
 			' Local variable(s):
 			Local LastMasterPath:String
@@ -539,4 +566,42 @@ Public
 			Return False
 		End
 	#End
+	
+	' Functions (Monkey) (Private):
+	Private
+	
+	#If VIRTUALOS_STANDALONE
+		' Ripped from 'regal.stringutil':
+		Function SmartClip:String(Input:String, Symbol:Int)
+			Return SmartClip(Input, Symbol, Input.Length)
+		End
+		
+		Function SmartClip:String(Input:String, Symbol:Int, Length:Int)
+			' Local variable(s):
+			Local FinalChar:= (Length - 1)
+			
+			Local XClip:Int
+			Local YClip:Int
+			
+			If (Input[0] = Symbol) Then
+				XClip = 1
+			Else
+				XClip = 0
+			Endif
+			
+			If (Input[FinalChar] = Symbol) Then
+				YClip = FinalChar
+			Else
+				YClip = Length
+			Endif
+			
+			If (XClip <> 0 Or YClip <> 0) Then
+				Return Input[XClip..YClip]
+			Endif
+			
+			Return Input
+		End
+	#End
+	
+	Public
 #End
