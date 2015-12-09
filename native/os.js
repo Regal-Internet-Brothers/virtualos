@@ -24,6 +24,9 @@ var __os_storage = sessionStorage; // localStorage;
 // A collection of loaded directories in the virtual file-system.
 var __os_directories = {};
 
+// This holds this document's loaded URIs. For details, see: '__os_allocateResource'.
+var __os_resources = {};
+
 // This is used to force re-downloads of remote files. (Unfinished behavior)
 var __os_badcache = false;
 
@@ -47,6 +50,16 @@ function __os_String_To_ArrayBuffer(fileData)
 	}
 	
 	return buf;
+}
+
+function __os_Native_To_String(nativeData)
+{
+	return nativeData;
+}
+
+function __os_Native_To_ArrayBuffer(nativeData)
+{
+	return __os_String_To_ArrayBuffer(nativeData);
 }
 
 // This copies the global 'os' context of the 'parent' environment.
@@ -222,28 +235,43 @@ function __os_fileCouldExist(realPath, checkType)
 }
 
 // This checks if any of the 'types' specified match 'lCasePath'. (Used internally)
-function __os_supportedFile(lCasePath, types)
+function __os_supportedFile(lCasePath, data)
 {
+	var types = data.split("|");
+	
+	var extensionSeparator = ".";
+	
 	for (var i = 0; i < types.length; i++)
 	{
-		if (lCasePath.endsWith(types[i].toLowerCase()))
+		var fileType = types[i];
+		var separatorPos = fileType.lastIndexOf(extensionSeparator);
+		
+		if (separatorPos == -1)
 		{
-			return true;
+			continue;
+		}
+		
+		fileType = fileType.substring(separatorPos).toLowerCase(); // ..
+		
+		if (lCasePath.endsWith(fileType))
+		{
+			return fileType.substring(1); // .. // true;
 		}
 	}
 	
 	// Return the default response.
-	return false;
+	return null; // false;
 }
 
 // This checks if any of the pre-defined supported file-types match 'lCasePath'. (Used internally)
 function __os_testSupportedFiles(lCasePath)
 {
 	// Currently pre-determined types; may be changed later:
+	if (__os_supportedFile(lCasePath, CFG_IMAGE_FILES)) return true;
 	if (__os_supportedFile(lCasePath, CFG_TEXT_FILES)) return true;
 	if (__os_supportedFile(lCasePath, CFG_BINARY_FILES)) return true;
+	if (__os_supportedFile(lCasePath, CFG_SOUND_FILES)) return true;
 	if (__os_supportedFile(lCasePath, CFG_MUSIC_FILES)) return true;
-	if (__os_supportedFile(lCasePath, CFG_BINARY_FILES)) return true;
 	
 	// Return the default response.
 	return false;
@@ -354,6 +382,107 @@ function __os_deleteFileEntries(realPath, isDir)
 	}
 	
 	return response;
+}
+
+// This looks 'realPath' up internally, and if present, generates a URI for that resource.
+// This is useful for frameworks like Mojo, which normally require server-side storage mechanics.
+function __os_allocateResource(realPath, fallback)
+{
+	var f = __os_storageLookup(realPath);
+	
+	if (f == null)
+	{
+		return null;
+	}
+	
+	if (__os_resources[realPath] != null)
+	{
+		return __os_resources[realPath];
+	}
+
+	// Resolve the file-extension:
+	var extPos, fullExt, ext;
+
+	extPos = realPath.lastIndexOf(".");
+
+	if (extPos != -1)
+	{
+		fullExt = realPath.substring(extPos).toLowerCase(); // ..
+		ext = fullExt.substring(1); // ..
+	}
+	else // if (ext == null)
+	{
+		if (fallback)
+		{
+			// If nothing else could be done, assume PNG:
+			fullExt = ".png";
+			ext = "png"; // fullExt.substring(1); // ..
+		}
+		else
+		{
+			return null;
+		}
+	}
+
+	// Build the resource:
+	var blobType;
+	
+	if (__os_supportedFile(fullExt, CFG_IMAGE_FILES))
+	{
+		blobType = ("image/" + ext);
+	}
+	else
+	{
+		if (__os_supportedFile(fullExt, CFG_TEXT_FILES))
+		{
+			blobType = "text/plain ; charset=x-user-defined"; // "text/plain";
+		}
+		else
+		{
+			if (__os_supportedFile(fullExt, CFG_BINARY_FILES))
+			{
+				blobType = "text/plain ; charset=x-user-defined"; // "application/octet-stream";
+			}
+			else
+			{
+				if (__os_supportedFile(fullExt, CFG_SOUND_FILES) || __os_supportedFile(fullExt, CFG_MUSIC_FILES))
+				{
+					blobType = "audio/";
+					
+					switch (ext)
+					{
+						case "mp3":
+						case "mpeg3":
+							blobType += "mpeg3";
+							
+							break;
+						//case "wav":
+						default:
+							blobType += ext;
+							
+							break;
+					}
+				}
+				else
+				{
+					return null;
+				}
+			}
+		}
+	}
+	
+	var rawData = __os_Native_To_ArrayBuffer(f); // f;
+	var bytes = new Uint8Array(rawData);
+	var blob = new Blob([rawData], { type: blobType });
+
+	var uriGenerator = window.URL || window.webkitURL;
+	var uri = uriGenerator.createObjectURL(blob);
+
+	__os_resources[realPath] = uri;
+
+	//uriGenerator.revokeObjectURL(uri);
+	
+	return uri;
 }
 
 // API:
