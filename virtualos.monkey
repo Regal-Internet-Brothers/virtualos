@@ -166,7 +166,6 @@ Public
 	
 	#If VIRTUALOS_EXTENSION_VFILE
 		Function __OS_StorageSupported:Bool()="__os_storageSupported"
-		'Function __OS_CreateFileEntry:Void(Rep:String, Data:String, IsDir:Bool=False)="__os_createFileEntry"
 		Function __OS_CreateFileLink:Void(Rep:String)="__os_createFileLink"
 	#End
 	

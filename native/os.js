@@ -30,6 +30,24 @@ var __os_badcache = false;
 // Functions:
 
 // Extensions:
+function __os_ArrayBuffer_To_String(rawData)
+{
+	return String.fromCharCode.apply(null, new Uint8Array(rawData));
+}
+
+function __os_String_To_ArrayBuffer(fileData)
+{
+	var buf = new ArrayBuffer(fileData.length);
+	var bufView = new Uint8Array(buf);
+	
+	// Truncate data to bytes:
+	for (var i = 0, strLen = fileData.length; i < strLen; i++)
+	{
+		bufView[i] = fileData.charCodeAt(i); // & 0xFF;
+	}
+	
+	return buf;
+}
 
 // This copies the global 'os' context of the 'parent' environment.
 function __os_inheritParent()
@@ -82,8 +100,6 @@ function __os_toRemotePath(realPath)
 // If no file was found, the return-value is undefined.
 function __os_download(url)
 {
-	//print("Downloading: " + url);
-	
 	var xhr = new XMLHttpRequest();
 	
 	try
@@ -93,7 +109,9 @@ function __os_download(url)
 		
 		// For now, we don't care about file updates.
 		// This is something to look into later:
-		xhr.overrideMimeType('text/plain');
+		//xhr.overrideMimeType('text/plain');
+		//xhr.overrideMimeType("application/octet-stream");
+		xhr.overrideMimeType("text/plain ; charset=x-user-defined");
 		xhr.setRequestHeader("Cache-Control", "no-cache");
 		xhr.setRequestHeader("Pragma", "no-cache");
 		xhr.setRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
@@ -106,7 +124,7 @@ function __os_download(url)
 			case 0:
 			case 304:
 			case 200:
-				return xhr.responseText;
+				return xhr.responseText; // __os_ArrayBuffer_To_String(__os_String_To_ArrayBuffer(xhr.responseText)); // __os_String_To_ArrayBuffer(xhr.responseText); // xhr.response;
 				
 				break;
 		}
@@ -494,6 +512,7 @@ function LoadString(path)
 {
 	var rpath = RealPath(path);
 	var f = __os_storageLookup(rpath);
+	var out = "";
 	
 	if (f == null)
 	{
@@ -503,15 +522,15 @@ function LoadString(path)
 		
 		if (dl != null)
 		{
-			return dl;
+			out = dl;
 		}
 	}
 	else
 	{
-		return f;
+		out = f;
 	}
 	
-	return "";
+	return out;
 }
 
 function SaveString(str, path)
