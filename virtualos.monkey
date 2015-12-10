@@ -12,11 +12,15 @@ Public
 
 #If VIRTUALOS_JS_TARGET
 	#VIRTUALOS_IMPLEMENTED = True
+	
 	#VIRTUALOS_MAP_ENV = True
 	#VIRTUALOS_MAP_FILETIMES = True
+	
 	#VIRTUALOS_EXTENSION_DL = True
 	#VIRTUALOS_EXTENSION_VFILE = True
 	#VIRTUALOS_EXTENSION_REMOTEPATH = True
+	#VIRTUALOS_EXTENSION_NATIVE_RECURSION = True
+	
 	'#VIRTUALOS_REAL_FILEPATH = True
 	
 	#If CONFIG = "debug"
@@ -147,7 +151,13 @@ Public
 	Function SaveString:Int(Str:String, Path:String)
 	Function LoadDir:String[](Path:String)
 	Function CreateDir:Bool(Path:String)
+	
 	Function DeleteDir:Bool(Path:String)
+	
+	#If VIRTUALOS_EXTENSION_NATIVE_RECURSION
+		Function DeleteDir:Bool(Path:String, Recursive:Bool)
+	#End
+	
 	Function ChangeDir:Int(Path:String)
 	Function CurrentDir:String()
 	
@@ -315,38 +325,40 @@ Public
 		Return True
 	End
 	
-	Function DeleteDir:Bool(Path$, Recursive:Bool)
-		If (Not Recursive) Then
-			Return DeleteDir(Path)
-		Endif
-		
-		Select (FileType(Path))
-			Case FILETYPE_NONE
-				Return True
-			Case FILETYPE_FILE
-				Return False
-		End Select
-		
-		For Local F:= Eachin LoadDir(Path)
-			If (F = "." Or F = "..") Then
-				Continue
+	#If Not VIRTUALOS_EXTENSION_NATIVE_RECURSION
+		Function DeleteDir:Bool(Path$, Recursive:Bool)
+			If (Not Recursive) Then
+				Return DeleteDir(Path)
 			Endif
 			
-			Local FPath:= (Path + "/" + F)
-	
-			If (FileType(FPath) = FILETYPE_DIR) Then
-				If (Not DeleteDir(FPath, True)) Then
+			Select (FileType(Path))
+				Case FILETYPE_NONE
+					Return True
+				Case FILETYPE_FILE
 					Return False
+			End Select
+			
+			For Local F:= Eachin LoadDir(Path)
+				If (F = "." Or F = "..") Then
+					Continue
 				Endif
-			Else
-				If (Not DeleteFile(FPath)) Then
-					Return False
+				
+				Local FPath:= (Path + "/" + F)
+		
+				If (FileType(FPath) = FILETYPE_DIR) Then
+					If (Not DeleteDir(FPath, True)) Then
+						Return False
+					Endif
+				Else
+					If (Not DeleteFile(FPath)) Then
+						Return False
+					Endif
 				Endif
-			Endif
-		Next
-	
-		Return DeleteDir(Path)
-	End
+			Next
+		
+			Return DeleteDir(Path)
+		End
+	#End
 	
 	#If Not VIRTUALOS_REAL_FILEPATH
 		Function StripDir:String(Path:String)

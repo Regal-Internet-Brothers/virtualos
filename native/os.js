@@ -346,10 +346,32 @@ function __os_getFile(realPath, isEmpty)
 	return f;
 }
 
-function __os_deleteFileEntries(realPath, isDir)
+function __os_deleteFileEntries(realPath, isDir, recursive) // isDir=false, recursive=false
 {
 	if (__os_directories.hasOwnProperty(realPath)) // isDir
 	{
+		//isDir = true;
+		
+		var check = function(storage, recursive)
+		{
+			for (var e in storage)
+			{
+				if (e != realPath && ((e.indexOf(realPath) == 0) && (recursive || e.lastIndexOf("/") < realPath.length))) // startsWith(..)
+				{
+					return __os_deleteFileEntries(e, undefined, recursive); // 'isDir' may need to be calculated later.
+				}
+			}
+		}
+		
+		check(sessionStorage, recursive);
+		check(localStorage, recursive);
+		//check(__os_storage, recurive);
+		
+		if (recursive)
+		{
+			check(__os_directories, true); // recursive
+		}
+		
 		delete __os_directories[realPath];
 		
 		return true;
@@ -382,6 +404,55 @@ function __os_deleteFileEntries(realPath, isDir)
 	}
 	
 	return response;
+}
+
+// This attempts to produce a valid MIME-type for 'path'.
+function __os_getMIMEType(path)
+{
+	var blobType;
+	
+	if (__os_supportedFile(fullExt, CFG_IMAGE_FILES))
+	{
+		blobType = ("image/" + ext);
+	}
+	else
+	{
+		if (__os_supportedFile(fullExt, CFG_TEXT_FILES))
+		{
+			blobType = "text/plain ; charset=x-user-defined"; // "text/plain";
+		}
+		else
+		{
+			if (__os_supportedFile(fullExt, CFG_BINARY_FILES))
+			{
+				blobType = "text/plain ; charset=x-user-defined"; // "application/octet-stream";
+			}
+			else
+			{
+				if (__os_supportedFile(fullExt, CFG_SOUND_FILES) || __os_supportedFile(fullExt, CFG_MUSIC_FILES))
+				{
+					blobType = "audio/";
+					
+					switch (ext)
+					{
+						case "mp3":
+						case "mpeg3":
+							blobType += "mpeg3";
+							
+							break;
+						//case "wav":
+						//case "ogg":
+						default:
+							blobType += ext;
+							
+							break;
+					}
+				}
+			}
+		}
+	}
+	
+	return blobType;
 }
 
 // This looks 'realPath' up internally, and if present, generates a URI for that resource.
@@ -425,50 +496,11 @@ function __os_allocateResource(realPath, fallback)
 	}
 
 	// Build the resource:
-	var blobType;
+	var blobType = __os_getMIMEType(fullExt);
 	
-	if (__os_supportedFile(fullExt, CFG_IMAGE_FILES))
+	if (blobType == null)
 	{
-		blobType = ("image/" + ext);
-	}
-	else
-	{
-		if (__os_supportedFile(fullExt, CFG_TEXT_FILES))
-		{
-			blobType = "text/plain ; charset=x-user-defined"; // "text/plain";
-		}
-		else
-		{
-			if (__os_supportedFile(fullExt, CFG_BINARY_FILES))
-			{
-				blobType = "text/plain ; charset=x-user-defined"; // "application/octet-stream";
-			}
-			else
-			{
-				if (__os_supportedFile(fullExt, CFG_SOUND_FILES) || __os_supportedFile(fullExt, CFG_MUSIC_FILES))
-				{
-					blobType = "audio/";
-					
-					switch (ext)
-					{
-						case "mp3":
-						case "mpeg3":
-							blobType += "mpeg3";
-							
-							break;
-						//case "wav":
-						default:
-							blobType += ext;
-							
-							break;
-					}
-				}
-				else
-				{
-					return null;
-				}
-			}
-		}
+		return null;
 	}
 	
 	var rawData = __os_Native_To_ArrayBuffer(f); // f;
@@ -602,13 +634,13 @@ function FileSize(path)
 	
 	if (f == null)
 	{
-		return 0;
+		return 0; // -1;
 	}
 	
 	//if (f.startsWith(__os_directory_prefix))
 	if (f.indexOf(__os_directory_prefix) == 0)
 	{
-		return 0;
+		return 0; // -1;
 	}
 	
 	return f.length;
@@ -737,9 +769,9 @@ function CreateDir(path)
 	return true;
 }
 
-function DeleteDir(path)
+function DeleteDir(path, recursive) // recursive=false
 {
-	return __os_deleteFileEntries(RealPath(path), true);
+	return __os_deleteFileEntries(RealPath(path), true, recursive);
 }
 
 // I'm unsure if this is working 100%, but it helps get transcc running:
