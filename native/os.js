@@ -46,7 +46,7 @@ function __os_String_To_ArrayBuffer(fileData)
 	// Truncate data to bytes:
 	for (var i = 0, strLen = fileData.length; i < strLen; i++)
 	{
-		bufView[i] = fileData[i]; // charCodeAt(i) // & 0xFF;
+		bufView[i] = fileData.charCodeAt(i) // [i] // & 0xFF;
 	}
 	
 	return buf;
