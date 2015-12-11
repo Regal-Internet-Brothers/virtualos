@@ -21,9 +21,6 @@ var __os_currentdir = "";
 // This specifies the default storage.
 var __os_storage = sessionStorage; // localStorage;
 
-// A collection of loaded directories in the virtual file-system.
-var __os_directories = {};
-
 // This holds this document's loaded URIs. For details, see: '__os_allocateResource'.
 var __os_resources = {};
 
@@ -79,11 +76,6 @@ function __os_inheritParent()
 	//__os_appargs = parent.__os_appargs.slice();
 	__os_currentdir = parent.__os_currentdir;
 	__os_storage = parent.__os_storage;
-	
-	for (var p in parent.__os_directories)
-	{
-		__os_directories[p] = parent.__os_directories[p];
-	}
 	
 	//__os_badcache = parent.__os_badcache;
 }
@@ -289,18 +281,8 @@ function __os_testSupportedFiles(lCasePath)
 }
 
 // This checks if the file at 'realPath' is stored or not.
-function __os_storageLookup(realPath, isDir)
+function __os_storageLookup(realPath)
 {
-	if (__os_directories.hasOwnProperty(realPath))
-	{
-		return __os_directories[realPath];
-	}
-	
-	if (isDir)
-	{
-		return;
-	}
-	
 	var ss = sessionStorage.getItem(realPath);
 	
 	if (ss != null)
@@ -323,14 +305,7 @@ function __os_createFileEntryWith(storage, rep, data)
 
 function __os_createFileEntry(rep, data, isDir)
 {
-	if (isDir || data == __os_directory_Symbol) // <-- Somewhat inefficient.
-	{
-		__os_directories[rep] = data;
-	}
-	else
-	{
-		__os_createFileEntryWith(__os_storage, rep, data);
-	}
+	__os_createFileEntryWith(__os_storage, rep, data);
 }
 
 // This creates a "file link". "File links" are basically 'to-be-loaded'
@@ -346,8 +321,6 @@ function __os_createFileLink(rep)
 function __os_getFile(realPath, isEmpty)
 {
 	var f = __os_storageLookup(realPath);
-	
-	var isEmpty = false;
 	
 	if (f == null || isEmpty != null || (isEmpty = (f == __os_emptyFile_Symbol))) // Set 'isEmpty', and check it.
 	{
@@ -365,57 +338,67 @@ function __os_safelyDeleteFileEntries(realPath, isDir)
 
 function __os_deleteFileEntries(realPath, isDir, recursive) // isDir=false, recursive=false
 {
-	if (__os_directories.hasOwnProperty(realPath)) // isDir
-	{
-		//isDir = true;
-		
-		var check = function(storage, recursive)
-		{
-			for (var e in storage)
-			{
-				if (e != realPath && ((e.indexOf(realPath) == 0) && (recursive || e.lastIndexOf("/") < realPath.length))) // startsWith(..)
-				{
-					return __os_deleteFileEntries(e, undefined, recursive); // 'isDir' may need to be calculated later.
-				}
-			}
-		}
-		
-		check(sessionStorage, recursive);
-		check(localStorage, recursive);
-		//check(__os_storage, recurive);
-		
-		if (recursive)
-		{
-			check(__os_directories, true); // recursive
-		}
-		
-		delete __os_directories[realPath];
-		
-		return true;
-	}
-	
-	if (isDir)
-	{
-		return false;
-	}
-	
 	var response = false;
 	
+	// Test for 'realPath', and if found, remove the element(s):
 	var ss = sessionStorage.getItem(realPath);
 	
 	if (ss != null)
 	{
-		sessionStorage.removeItem(realPath); // ss;
-		
-		response = true;
+		response |= __os_removeStorageEntry(sessionStorage, realPath, isDir, recursive, ss); // =
 	}
 	
-	// Test for 'realPath', and if found, remove it:
 	var ls = localStorage.getItem(realPath);
 	
 	if (ls != null)
 	{
-		localStorage.removeItem(realPath); // ls;
+		response |= __os_removeStorageEntry(localStorage, realPath, isDir, recursive, ls);
+	}
+	
+	return response;
+}
+
+// This is used to remove an entry from a specific source. For a properly abstracted routine, use '__os_deleteFileEntries'.
+// This returns 'false' if this is not a directory, and the element could not be deleted (Doesn't exist).
+function __os_removeStorageEntry(storage, realPath, isDir, recursive, value) // isDir=undefined, recursive=false, value=null
+{
+	var response = false;
+	
+	if (value === undefined)
+	{
+		value = storage.getItem(realPath);
+	}
+	
+	if (value != null)
+	{
+		storage.removeItem(realPath);
+		
+		if (isDir === undefined && value == __os_directory_Symbol)
+		{
+			isDir = true;
+		}
+		
+		response = true;
+	}
+	
+	if (isDir)
+	{
+		for (var e in storage)
+		{
+			if (e.indexOf(realPath) == 0)
+			{
+				var lastSlash = e.lastIndexOf("/");
+				var ePath = e.substring(0, lastSlash-1);
+				
+				// Remove only what we need to: If we're doing this
+				// recursively, delete everything, but if not,
+				// make sure this isn't a sub-directory:
+				if ((recursive || lastSlash < realPath.length))
+				{
+					__os_removeStorageEntry(storage, ePath, undefined, recursive, e); // 'isDir' may need to be calculated later.
+				}
+			}
+		}
 		
 		response = true;
 	}
@@ -710,12 +693,12 @@ function SaveString(str, path)
 	__os_createFileEntry(RealPath(path), str);
 }
 
-function __os_loadStorage(realPath, storage, out)
+// This loads all files and folders in 'realPath' specifically.
+// In other words, this isn't recursive.
+function __os_loadFileStructure(realPath, storage, out)
 {
-	// for (var i in storage)
-	for (var i = 0; i < storage.length; i++)
+	for (var key in storage)
 	{
-		var key = storage.key(i);
 		var parentPos = key.indexOf(realPath);
 		
 		//if (key.startsWith(..))
@@ -731,27 +714,6 @@ function __os_loadStorage(realPath, storage, out)
 	}
 }
 
-function __os_loadDirectories(realPath, out)
-{
-	for (var folder in __os_directories)
-	{
-		if (folder == realPath)
-		{
-			continue;
-		}
-		
-		var parentFolder = folder.indexOf(realPath);
-		var cutoff = parentFolder + realPath.length + 1; // <-- Offset for future modification.
-		
-		if (parentFolder == 0 && folder.indexOf("/", cutoff) == -1)
-		{
-			var entry = folder.substring(cutoff);
-			
-			out.push(entry);
-		}
-	}
-}
-
 function LoadDir(path)
 {
 	switch (path)
@@ -762,10 +724,8 @@ function LoadDir(path)
 			var out = [];
 			
 			// Depends on these being the only storage options:
-			__os_loadStorage(rp, localStorage, out);
-			__os_loadStorage(rp, sessionStorage, out);
-			
-			__os_loadDirectories(rp, out);
+			__os_loadFileStructure(rp, localStorage, out);
+			__os_loadFileStructure(rp, sessionStorage, out);
 			
 			return out; break;
 	}
