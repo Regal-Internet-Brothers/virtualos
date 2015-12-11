@@ -122,14 +122,37 @@ function __os_setFileSystemEncoding(type)
 }
 
 // Implementation-level:
-function __os_ArrayBuffer_To_String(rawData)
+function __os_ArrayBuffer_To_String(rawData, chunk_size)
 {
 	if (rawData == null)
 	{
 		return null;
 	}
 	
-	return String.fromCharCode.apply(null, new Uint8Array(rawData));
+	//return String.fromCharCode.apply(null, new Uint8Array(rawData));
+	
+	if (chunk_size == null)
+	{
+		chunk_size = 1024;
+	}
+	
+	var content = new String();
+	
+	var bytesLeft = rawData.byteLength;
+	var offset = 0;
+	
+	while (bytesLeft > 0)
+	{
+		var cycleSize = Math.min(bytesLeft, chunk_size);
+		var dataView = new Uint8Array(rawData, offset, cycleSize);
+		
+		content += String.fromCharCode.apply(null, dataView);
+		
+		bytesLeft -= cycleSize;
+		offset += cycleSize;
+	}
+	
+	return content;
 }
 
 function __os_String_To_ArrayBuffer(fileData)
@@ -142,7 +165,6 @@ function __os_String_To_ArrayBuffer(fileData)
 	var buf = new ArrayBuffer(fileData.length);
 	var bufView = new Uint8Array(buf);
 	
-	// Truncate data to bytes:
 	for (var i = 0, strLen = fileData.length; i < strLen; i++)
 	{
 		bufView[i] = (fileData.charCodeAt(i)); // [i] // & 0xFF;
@@ -372,7 +394,7 @@ function __os_toRemotePath(realPath)
 // If no file was found, the return-value is undefined.
 function __os_download(url)
 {
-	var rawData = __os_download_raw(url);
+	var rawData = __os_download_as_string(url); // __os_download_raw(url);
 	
 	if (rawData == null)
 	{
@@ -452,24 +474,11 @@ function __os_downloadFile(storage, realPath, isEmpty) // isEmpty=false
 
 function __os_LoadNative(realPath)
 {
-	var f;
-	var out;
+	var out = __os_getFile(realPath);
 	
-	f = __os_storageLookup(realPath);
-	
-	if (f == null || f == __os_emptyFile_symbol)
+	if (out == __os_directory_symbol)
 	{
-		//out = __os_download(__os_toRemotePath(realPath));
-		out = __os_downloadFile(__os_storage, realPath);
-	}
-	else
-	{
-		if (f == __os_directory_symbol)
-		{
-			return null;
-		}
-		
-		out = f;
+		return null;
 	}
 	
 	return out;
@@ -829,10 +838,10 @@ function __os_allocateResource(realPath, fallback)
 	{
 		return __os_resources[realPath];
 	}
-
+	
 	// Resolve the file-extension:
 	var extPos, fullExt, ext;
-
+	
 	// Build the resource:
 	var blobType = __os_getMIMEType(realPath);
 	
@@ -841,14 +850,13 @@ function __os_allocateResource(realPath, fallback)
 		return null;
 	}
 	
-	var rawData = __os_Native_To_ArrayBuffer(f); // f;
-	var bytes = new Uint8Array(rawData);
+	var rawData = __os_Native_To_ArrayBuffer(f);
 	var blob = new Blob([rawData], { type: blobType });
-
+	
 	var uri = __os_obtainResource(blob);
-
+	
 	__os_resources[realPath] = uri;
-
+	
 	//__os_deallocateResource(..);
 	
 	return uri;
@@ -1028,7 +1036,14 @@ function DeleteFile(path)
 
 function LoadString(path)
 {
-	return __os_Native_To_String(__os_LoadNative(RealPath(path)));
+	var nativeData = __os_LoadNative(RealPath(path));
+	
+	if (nativeData != null)
+	{
+		return __os_Native_To_String(nativeData);
+	}
+	
+	return "";
 }
 
 function SaveString(str, path)
