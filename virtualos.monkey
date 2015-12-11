@@ -21,6 +21,8 @@ Public
 	#VIRTUALOS_EXTENSION_REMOTEPATH = True
 	#VIRTUALOS_EXTENSION_NATIVE_RECURSION = True
 	
+	#VIRTUALOS_EXTENSION_UNSAFE_LOADARRAY = True
+	
 	'#VIRTUALOS_REAL_FILEPATH = True
 	
 	#If CONFIG = "debug"
@@ -148,6 +150,14 @@ Public
 	#End
 	
 	Function LoadString:String(Path:String)
+	
+	#If VIRTUALOS_EXTENSION_UNSAFE_LOADARRAY
+		' This provides an array of integers in a native format, which is ideally used like a normal array.
+		' The resulting array is symbolic, and may or may not behave appropriately.
+		' If you are unsure, use 'LoadString'. (Binary data may still need to use this extension)
+		Function __OS_Unsafe__LoadArray:Int[](RealPath:String)="__os_LoadArray"
+	#End
+	
 	Function SaveString:Int(Str:String, Path:String)
 	Function LoadDir:String[](Path:String)
 	Function CreateDir:Bool(Path:String)

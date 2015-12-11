@@ -1,4 +1,10 @@
 
+/*
+	META:
+		Native 'Storage' format: Base64
+		Native 'Storage' object: 'sessionStorage'
+*/
+
 // Constant variable(s):
 
 // File-type macros:
@@ -7,8 +13,19 @@ var FILETYPE_FILE = 1;
 var FILETYPE_DIR = 2;
 
 // Internal:
-var __os_directory_Symbol = "||DIR||"; // "//"
-var __os_emptyFile_Symbol = "||EMPTY||"; // "/|E"
+var __os_filesystem_type_symbol = "||__os_filesystem_type||";
+var __os_directory_symbol = "||DIR||"; // "//"
+var __os_emptyFile_symbol = "||EMPTY||"; // "/|E"
+
+// File-system types:
+var FILESYSTEM_ENCODING_STRING = 0;
+var FILESYSTEM_ENCODING_BASE64 = 1;
+
+// This is currently reserved. Usage may result in undefined behavior.
+var FILESYSTEM_ENCODING_ARRAYBUFFER = 2;
+
+// This acts as the default encoding scheme for file-systems.
+var FILESYSTEM_ENCODING_DEFAULT = FILESYSTEM_ENCODING_ARRAYBUFFER; // FILESYSTEM_ENCODING_STRING; // FILESYSTEM_ENCODING_BASE64;
 
 // Global variable(s):
 
@@ -19,7 +36,14 @@ var __os_appargs = [];
 var __os_currentdir = "";
 
 // This specifies the default storage.
-var __os_storage = sessionStorage; // localStorage;
+var __os_storage = []; // sessionStorage; // localStorage;
+
+// This states if '__os_storage' is a known source (Global 'Storage' object).
+var __os_storage_is_known_source = false; // true;
+
+// This states if all known sources should be checked when performing abstract file-operations.
+// This should only be enabled when using a known source for storage.
+var __os_storage_all_sources = __os_storage_is_known_source; // true;
 
 // This holds this document's loaded URIs. For details, see: '__os_allocateResource'.
 var __os_resources = {};
@@ -27,9 +51,69 @@ var __os_resources = {};
 // This is used to force re-downloads of remote files. (Unfinished behavior)
 var __os_badcache = false;
 
+// This is used to generate handles to resources.
+var __os_resource_generator = window.URL || window.webkitURL;
+
 // Functions:
 
-// Conversion routines:
+// Conversion and storage semantics:
+
+// Changing this on normal runtime will result in horribly undefined behavior, usually leading to corruption.
+// If you wish to change the internal storage mechanism, do it before anything else.
+// Transferral of containers is unsupported, and will need to be handled by the caller.
+function __os_setFileSystemContainer(container, allowMultiSource)
+{
+	if (container == sessionStorage || container == localStorage)
+	{
+		__os_storage_is_known_source = true;
+	}
+	else
+	{
+		__os_storage_is_known_source = false;
+	}
+	
+	if (allowMultiSource)
+	{
+		__os_storage_all_sources = __os_storage_is_known_source;
+	}
+	else
+	{
+		__os_storage_all_sources = false;
+	}
+	
+	__os_storage = container;
+}
+
+// This just returns '__os_storage'.
+function __os_getFileSystemContainer()
+{
+	return __os_storage;
+}
+
+// This represents the native encoding scheme. (DO NOT MODIFY; see '__os_setFileSystemEncoding')
+function __os_getFileSystemEncoding()
+{
+	if (__os_storage.hasOwnProperty(__os_filesystem_type_symbol))
+	{
+		// Unfortunately, everything is a string in 'Storage' objects.
+		return Number(__os_storage[__os_filesystem_type_symbol]);
+	}
+	
+	var type = FILESYSTEM_ENCODING_DEFAULT;
+	
+	__os_setFileSystemEncoding(type);
+	
+	return type;
+}
+
+// Changing this on normal runtime will result in horribly undefined behavior, usually leading to corruption.
+// Similarly, do not change this if you're using persistent storage, like 'localStorage'.
+// As a rule of thumb, if you're going to call this, do it before anything else.
+// If this is not first called, it will be called internally using the default type.
+function __os_setFileSystemEncoding(type)
+{
+	__os_storage[__os_filesystem_type_symbol] = type;
+}
 
 // Implementation-level:
 function __os_ArrayBuffer_To_String(rawData)
@@ -55,7 +139,7 @@ function __os_String_To_ArrayBuffer(fileData)
 	// Truncate data to bytes:
 	for (var i = 0, strLen = fileData.length; i < strLen; i++)
 	{
-		bufView[i] = fileData.charCodeAt(i) // [i] // & 0xFF;
+		bufView[i] = (fileData.charCodeAt(i)); // [i] // & 0xFF;
 	}
 	
 	return buf;
@@ -68,7 +152,17 @@ function __os_Base64_To_String(base64)
 		return null;
 	}
 	
-	return decodeURIComponent(escape(atob(base64))); // window.atob(..);
+	var x = atob(base64);
+	var y = escape(x);
+	
+	try
+	{
+		return decodeURIComponent(y); // window.atob(..);
+	}
+	catch (ex)
+	{
+		return x; // y;
+	}
 }
 
 function __os_String_To_Base64(str)
@@ -78,7 +172,17 @@ function __os_String_To_Base64(str)
 		return null;
 	}
 	
-	return btoa(unescape(encodeURIComponent(str))); // window.btoa(..);
+	try
+	{
+		return btoa(str); // window.btoa(..);
+	}
+	catch (ex)
+	{
+		var a = encodeURIComponent(str);
+		var b = unescape(a);
+		
+		return btoa(b); // window.btoa(..);
+	}
 }
 
 // Redirection-level:
@@ -105,34 +209,98 @@ function __os_ArrayBuffer_To_Base64(rawData)
 // Abstraction layer:
 function __os_Native_To_String(nativeData)
 {
-	//return nativeData;
-	//return __os_ArrayBuffer_To_String(nativeData);
-	
-	return __os_Base64_To_String(nativeData);
+	switch (__os_getFileSystemEncoding())
+	{
+		case FILESYSTEM_ENCODING_STRING:
+			return nativeData;
+		case FILESYSTEM_ENCODING_ARRAYBUFFER:
+			return __os_ArrayBuffer_To_String(nativeData);
+		case FILESYSTEM_ENCODING_BASE64:
+			return __os_Base64_To_String(nativeData);
+	}
 }
 
 function __os_Native_To_ArrayBuffer(nativeData)
 {
-	//return __os_String_To_ArrayBuffer(nativeData);
-	//return nativeData;
-	
-	return __os_Base64_To_ArrayBuffer(nativeData);
+	switch (__os_getFileSystemEncoding())
+	{
+		case FILESYSTEM_ENCODING_STRING:
+			return __os_String_To_ArrayBuffer(nativeData);
+		case FILESYSTEM_ENCODING_ARRAYBUFFER:
+			return nativeData;
+		case FILESYSTEM_ENCODING_BASE64:
+			return __os_Base64_To_ArrayBuffer(nativeData);
+	}
+}
+
+function __os_Native_To_Base64(nativeData)
+{
+	switch (__os_getFileSystemEncoding())
+	{
+		case FILESYSTEM_ENCODING_STRING:
+			return __os_String_To_Base64(nativeData);
+		case FILESYSTEM_ENCODING_ARRAYBUFFER:
+			return __os_ArrayBuffer_To_Base64(nativeData);
+		case FILESYSTEM_ENCODING_BASE64:
+			return nativeData;
+	}
 }
 
 function __os_String_To_Native(str)
 {
-	//return str;
-	//return __os_String_To_ArrayBuffer(str);
-	
-	return __os_String_To_Base64(str);
+	switch (__os_getFileSystemEncoding())
+	{
+		case FILESYSTEM_ENCODING_STRING:
+			return str;
+		case FILESYSTEM_ENCODING_ARRAYBUFFER:
+			return __os_String_To_ArrayBuffer(str);
+		case FILESYSTEM_ENCODING_BASE64:
+			return __os_String_To_Base64(str);
+	}
 }
 
 function __os_ArrayBuffer_To_Native(rawData)
 {
-	//return __os_ArrayBuffer_To_String(rawData);
-	//return rawData;
+	switch (__os_getFileSystemEncoding())
+	{
+		case FILESYSTEM_ENCODING_STRING:
+			return __os_ArrayBuffer_To_String(rawData);
+		case FILESYSTEM_ENCODING_ARRAYBUFFER:
+			return rawData;
+		case FILESYSTEM_ENCODING_BASE64:
+			return __os_ArrayBuffer_To_Base64(rawData);
+	}
+}
+
+function __os_Base64_To_Native(base64)
+{
+	// Make sure there's no URI header.
+	base64 = __os_stripURIHeader(base64);
 	
-	return __os_ArrayBuffer_To_Base64(rawData);
+	switch (__os_getFileSystemEncoding())
+	{
+		case FILESYSTEM_ENCODING_STRING:
+			return __os_Base64_To_String(base64);
+		case FILESYSTEM_ENCODING_ARRAYBUFFER:
+			return __os_Base64_To_ArrayBuffer(base64);
+		case FILESYSTEM_ENCODING_BASE64:
+			return base64;
+	}
+}
+
+// This "strips" the URI header (If present) from 'base64'.
+function __os_stripURIHeader(base64)
+{
+	//return base64;
+	
+	var clipPoint = base64.indexOf(",");
+	
+	if (clipPoint != -1)
+	{
+		return base64.substring(clipPoint+1); // ..
+	}
+	
+	return base64;
 }
 
 // Extensions:
@@ -253,9 +421,9 @@ function __os_download_raw(url)
 // This downloads a file from 'url' and represents it with 'rep'.
 function __os_downloadFileUsingRep(storage, url, rep, isEmpty) // isEmpty=false
 {
-	var repValue = storage.getItem(rep);
+	var repValue = storage[rep];
 	
-	if (isEmpty || repValue == null || __os_badcache || repValue == __os_emptyFile_Symbol) // === undefined
+	if (isEmpty || repValue == null || __os_badcache || repValue == __os_emptyFile_symbol) // === undefined
 	{
 		var data = __os_download(url);
 		
@@ -276,10 +444,43 @@ function __os_downloadFile(storage, realPath, isEmpty) // isEmpty=false
 	return __os_downloadFileUsingRep(storage, __os_toRemotePath(realPath), realPath, isEmpty);
 }
 
+function __os_LoadNative(realPath)
+{
+	var f;
+	var out;
+	
+	f = __os_storageLookup(realPath);
+	
+	if (f == null || f == __os_emptyFile_symbol)
+	{
+		//out = __os_download(__os_toRemotePath(realPath));
+		out = __os_downloadFile(__os_storage, realPath);
+	}
+	else
+	{
+		if (f == __os_directory_symbol)
+		{
+			return null;
+		}
+		
+		out = f;
+	}
+	
+	return out;
+}
+
+// This provides an array of (Signed) 8-bit integers ('Int8Array').
+function __os_LoadArray(realPath)
+{
+	var rawData = __os_Native_To_ArrayBuffer(__os_LoadNative(realPath));
+	
+	return new Int8Array(rawData);
+}
+
 // This specifies if this browser supports native file storage.
 function __os_storageSupported()
 {
-	return (typeof(Storage) !== "undefined");
+	return (typeof(Storage) !== "undefined"); // true;
 }
 
 // This fixes uses of ".." in paths. (Partially unsafe)
@@ -382,24 +583,40 @@ function __os_testSupportedFiles(lCasePath)
 // This checks if the file at 'realPath' is stored or not.
 function __os_storageLookup(realPath)
 {
-	var ss = sessionStorage.getItem(realPath);
+	var cs = __os_storage[realPath];
 	
-	if (ss != null)
+	if (cs != null)
 	{
-		return ss;
+		return cs;
 	}
 	
-	var ls = localStorage.getItem(realPath);
-	
-	if (ls != null)
+	if (__os_storage_all_sources)
 	{
-		return ls;
+		if (sessionStorage != __os_storage)
+		{
+			var ss = sessionStorage[realPath];
+			
+			if (ss != null)
+			{
+				return ss;
+			}
+		}
+		
+		if (localStorage != __os_storage)
+		{
+			var ls = localStorage[realPath];
+			
+			if (ls != null)
+			{
+				return ls;
+			}
+		}
 	}
 }
 
 function __os_createFileEntryWith(storage, rep, data)
 {
-	storage.setItem(rep, data);
+	storage[rep] = data;
 }
 
 function __os_createFileEntry(rep, data, isDir)
@@ -412,7 +629,7 @@ function __os_createFileEntry(rep, data, isDir)
 // This command is abstract from the underlying storage system.
 function __os_createFileLink(rep)
 {
-	__os_createFileEntry(rep, __os_emptyFile_Symbol, false);
+	__os_createFileEntry(rep, __os_emptyFile_symbol, false);
 }
 
 // This gets a file using 'realPath' from a remote host.
@@ -421,7 +638,7 @@ function __os_getFile(realPath, isEmpty)
 {
 	var f = __os_storageLookup(realPath);
 	
-	if (f == null || isEmpty != null || (isEmpty = (f == __os_emptyFile_Symbol))) // Set 'isEmpty', and check it.
+	if (f == null || isEmpty != null || (isEmpty = (f == __os_emptyFile_symbol))) // Set 'isEmpty', and check it.
 	{
 		return __os_downloadFile(__os_storage, realPath, isEmpty);
 	}
@@ -439,19 +656,35 @@ function __os_deleteFileEntries(realPath, isDir, recursive) // isDir=false, recu
 {
 	var response = false;
 	
-	// Test for 'realPath', and if found, remove the element(s):
-	var ss = sessionStorage.getItem(realPath);
+	var cs = __os_storage[realPath];
 	
-	if (ss != null)
+	if (cs != null)
 	{
-		response |= __os_removeStorageEntry(sessionStorage, realPath, isDir, recursive, ss); // =
+		response |= __os_removeStorageEntry(__os_storage, realPath, isDir, recursive, cs);
 	}
 	
-	var ls = localStorage.getItem(realPath);
-	
-	if (ls != null)
+	if (__os_storage_all_sources)
 	{
-		response |= __os_removeStorageEntry(localStorage, realPath, isDir, recursive, ls);
+		if (sessionStorage != __os_storage)
+		{
+			// Test for 'realPath', and if found, remove the element(s):
+			var ss = sessionStorage[realPath];
+			
+			if (ss != null)
+			{
+				response |= __os_removeStorageEntry(sessionStorage, realPath, isDir, recursive, ss); // =
+			}
+		}
+		
+		if (localStorage != __os_storage)
+		{
+			var ls = localStorage[realPath];
+			
+			if (ls != null)
+			{
+				response |= __os_removeStorageEntry(localStorage, realPath, isDir, recursive, ls);
+			}
+		}
 	}
 	
 	return response;
@@ -465,14 +698,14 @@ function __os_removeStorageEntry(storage, realPath, isDir, recursive, value) // 
 	
 	if (value === undefined)
 	{
-		value = storage.getItem(realPath);
+		value = storage[realPath];
 	}
 	
 	if (value != null)
 	{
-		storage.removeItem(realPath);
+		delete storage[realPath];
 		
-		if (isDir === undefined && value == __os_directory_Symbol)
+		if (isDir === undefined && value == __os_directory_symbol)
 		{
 			isDir = true;
 		}
@@ -606,14 +839,41 @@ function __os_allocateResource(realPath, fallback)
 	var bytes = new Uint8Array(rawData);
 	var blob = new Blob([rawData], { type: blobType });
 
-	var uriGenerator = window.URL || window.webkitURL;
-	var uri = uriGenerator.createObjectURL(blob);
+	var uri = __os_obtainResource(blob);
 
 	__os_resources[realPath] = uri;
 
-	//uriGenerator.revokeObjectURL(uri);
+	//__os_deallocateResource(..);
 	
 	return uri;
+}
+
+// This command is considered unsafe, and should only be used under controlled environments.
+// The behavior of the symbolized resource is undefined after calling this.
+function __os_deallocateResource(realPath)
+{
+	var uri = __os_resources[realPath];
+	__os_revokeResource(uri);
+	
+	delete __os_resources[realPath];
+	
+	return true;
+}
+
+// These two commands obtain and revoke/release system-resources:
+
+// Calling this is considered unsafe, and therefore should not be used in conjunction with automatic resource management.
+// For that, you should use '__os_allocateResource', instead.
+function __os_obtainResource(blob)
+{
+	return __os_resource_generator.createObjectURL(blob);
+}
+
+// Calling this is considered unsafe, and therefore should not be used in conjunction with automatic resource management.
+// For that, you should use '__os_deallocateResource', instead.
+function __os_revokeResource(uri)
+{
+	__os_resource_generator.revokeObjectURL(uri);
 }
 
 // API:
@@ -698,7 +958,7 @@ function FileType(path)
 	var isEmpty;
 	
 	// Check if we don't have an entry to view:
-	if (file == null || (isEmpty = (file == __os_emptyFile_Symbol))) // Set 'isEmpty', and check it.
+	if (file == null || (isEmpty = (file == __os_emptyFile_symbol))) // Set 'isEmpty', and check it.
 	{
 		// Check if we could load this file using the current file-system:
 		if (isEmpty || __os_fileCouldExist(realPath))
@@ -711,7 +971,7 @@ function FileType(path)
 	if (file != null)
 	{
 		//if (__os_testSupportedFiles(realPath.toLowerCase()))
-		if (file != __os_directory_Symbol)
+		if (file != __os_directory_symbol)
 		{
 			return FILETYPE_FILE;
 		}
@@ -727,11 +987,9 @@ function FileType(path)
 function FileSize(path)
 {
 	var rpath = RealPath(path);
-	var storage = sessionStorage;
+	var f = __os_downloadFile(__os_storage, rpath);
 	
-	var f = __os_downloadFile(storage, rpath);
-	
-	if (f == null || f == __os_directory_Symbol)
+	if (f == null || f == __os_directory_symbol)
 	{
 		return 0; // -1;
 	}
@@ -764,26 +1022,7 @@ function DeleteFile(path)
 
 function LoadString(path)
 {
-	var rpath = RealPath(path);
-	var f = __os_storageLookup(rpath);
-	var out;
-	
-	if (f == null || f == __os_emptyFile_Symbol)
-	{
-		//out = __os_download(__os_toRemotePath(rpath));
-		out = __os_downloadFile(__os_storage, rpath);
-	}
-	else
-	{
-		if (f == __os_directory_Symbol)
-		{
-			return "";
-		}
-		
-		out = f;
-	}
-	
-	return __os_Native_To_String(out);
+	return __os_Native_To_String(__os_LoadNative(RealPath(path)));
 }
 
 function SaveString(str, path)
@@ -821,9 +1060,20 @@ function LoadDir(path)
 			
 			var out = [];
 			
-			// Depends on these being the only storage options:
-			__os_loadFileStructure(rp, localStorage, out);
-			__os_loadFileStructure(rp, sessionStorage, out);
+			__os_loadFileStructure(rp, __os_storage, out);
+			
+			if (__os_storage_all_sources)
+			{
+				if (sessionStorage != __os_storage)
+				{
+					__os_loadFileStructure(rp, localStorage, out);
+				}
+				
+				if (localStorage != __os_storage)
+				{
+					__os_loadFileStructure(rp, sessionStorage, out);
+				}
+			}
 			
 			return out; break;
 	}
@@ -833,7 +1083,7 @@ function LoadDir(path)
 
 function CreateDir(path)
 {
-	__os_createFileEntry(RealPath(path), __os_directory_Symbol, true); // <-- Prefix added for debugging purposes.
+	__os_createFileEntry(RealPath(path), __os_directory_symbol, true); // <-- Prefix added for debugging purposes.
 	
 	return true;
 }
