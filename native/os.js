@@ -67,7 +67,7 @@ var __os_resource_generator = window.URL || window.webkitURL;
 // Changing this on normal runtime will result in horribly undefined behavior, usually leading to corruption.
 // If you wish to change the internal storage mechanism, do it before anything else.
 // Transferral of containers is unsupported, and will need to be handled by the caller.
-function __os_setFileSystemContainer(container, allowMultiSource)
+function __os_setFileSystemContainer(container, disallowMultiSource)
 {
 	if (container == sessionStorage || container == localStorage)
 	{
@@ -78,13 +78,13 @@ function __os_setFileSystemContainer(container, allowMultiSource)
 		__os_storage_is_known_source = false;
 	}
 	
-	if (allowMultiSource)
+	if (disallowMultiSource)
 	{
-		__os_storage_all_sources = __os_storage_is_known_source;
+		__os_storage_all_sources = false;
 	}
 	else
 	{
-		__os_storage_all_sources = false;
+		__os_storage_all_sources = __os_storage_is_known_source;
 	}
 	
 	__os_storage = container;
