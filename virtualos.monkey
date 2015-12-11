@@ -180,12 +180,12 @@ Public
 	#End
 	
 	#If VIRTUALOS_EXTENSION_DL
-		Function __OS_Download:String(URL:String)="__os_download"
+		Function __OS_Download:String(URL:String)="__os_download_as_string"
 		
 		' Virtual file-system (JavaScript) extensions:
 		#If VIRTUALOS_EXTENSION_VFILE ' VIRTUALOS_JS_TARGET
 			Function __OS_DownloadFileUsingRep:String(Storage:StorageHandle, URL:String, Rep:String)="__os_downloadFileUsingRep"
-			Function __OS_DownloadFile:String(Storage:StorageHandle, RealPath:String)="__os_downloadFile"
+			Function __OS_DownloadFile:Void(Storage:StorageHandle, RealPath:String)="__os_downloadFile"
 		#End
 	#End
 	

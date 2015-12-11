@@ -29,14 +29,26 @@ var __os_badcache = false;
 
 // Functions:
 
-// Extensions:
+// Conversion routines:
+
+// Implementation-level:
 function __os_ArrayBuffer_To_String(rawData)
 {
+	if (rawData == null)
+	{
+		return null;
+	}
+	
 	return String.fromCharCode.apply(null, new Uint8Array(rawData));
 }
 
 function __os_String_To_ArrayBuffer(fileData)
 {
+	if (fileData == null)
+	{
+		return null;
+	}
+	
 	var buf = new ArrayBuffer(fileData.length);
 	var bufView = new Uint8Array(buf);
 	
@@ -49,26 +61,81 @@ function __os_String_To_ArrayBuffer(fileData)
 	return buf;
 }
 
+function __os_Base64_To_String(base64)
+{
+	if (base64 == null)
+	{
+		return null;
+	}
+	
+	return decodeURIComponent(escape(atob(base64))); // window.atob(..);
+}
+
+function __os_String_To_Base64(str)
+{
+	if (str == null)
+	{
+		return null;
+	}
+	
+	return btoa(unescape(encodeURIComponent(str))); // window.btoa(..);
+}
+
+// Redirection-level:
+function __os_Base64_To_ArrayBuffer(base64)
+{
+	if (base64 == null)
+	{
+		return null;
+	}
+	
+	return __os_String_To_ArrayBuffer(__os_Base64_To_String(base64)); // atob(base64);
+}
+
+function __os_ArrayBuffer_To_Base64(rawData)
+{
+	if (rawData == null)
+	{
+		return null;
+	}
+	
+	return __os_String_To_Base64(__os_ArrayBuffer_To_String(rawData));
+}
+
+// Abstraction layer:
 function __os_Native_To_String(nativeData)
 {
-	return nativeData;
+	//return nativeData;
+	//return __os_ArrayBuffer_To_String(nativeData);
+	
+	return __os_Base64_To_String(nativeData);
 }
 
 function __os_Native_To_ArrayBuffer(nativeData)
 {
-	return __os_String_To_ArrayBuffer(nativeData);
+	//return __os_String_To_ArrayBuffer(nativeData);
+	//return nativeData;
+	
+	return __os_Base64_To_ArrayBuffer(nativeData);
 }
 
 function __os_String_To_Native(str)
 {
+	//return str;
 	//return __os_String_To_ArrayBuffer(str);
-	return str;
+	
+	return __os_String_To_Base64(str);
 }
 
 function __os_ArrayBuffer_To_Native(rawData)
 {
-	return __os_ArrayBuffer_To_String(rawData);
+	//return __os_ArrayBuffer_To_String(rawData);
+	//return rawData;
+	
+	return __os_ArrayBuffer_To_Base64(rawData);
 }
+
+// Extensions:
 
 // This copies the global 'os' context of the 'parent' environment.
 function __os_inheritParent()
@@ -112,9 +179,41 @@ function __os_toRemotePath(realPath)
 	return (output + realPath);
 }
 
+/*
+	// This is a hack, as we currently retrieve a string anyway, but this is future-proof:
+	function __os_download_as_string(url)
+	{
+		var nativeData = __os_download(url);
+		
+		if (nativeData == null)
+		{
+			return null;
+		}
+		
+		return __os_Native_To_String(nativeData);
+	}
+*/
+
 // This downloads from 'url', and returns the file's data.
 // If no file was found, the return-value is undefined.
 function __os_download(url)
+{
+	var rawData = __os_download_raw(url);
+	
+	if (rawData == null)
+	{
+		return null;
+	}
+	
+	return __os_String_To_Native(rawData);
+}
+
+function __os_download_as_string(url)
+{
+	return __os_download_raw(url);
+}
+
+function __os_download_raw(url)
 {
 	var xhr = new XMLHttpRequest();
 	
@@ -140,7 +239,7 @@ function __os_download(url)
 			case 0:
 			case 304:
 			case 200:
-				return xhr.responseText; // __os_ArrayBuffer_To_String(__os_String_To_ArrayBuffer(xhr.responseText)); // __os_String_To_ArrayBuffer(xhr.responseText); // xhr.response;
+				return xhr.responseText; // xhr.response;
 				
 				break;
 		}
@@ -667,30 +766,29 @@ function LoadString(path)
 {
 	var rpath = RealPath(path);
 	var f = __os_storageLookup(rpath);
-	var out = "";
+	var out;
 	
-	if (f == null)
+	if (f == null || f == __os_emptyFile_Symbol)
 	{
-		// Currently not cached (To be changed):
-		//var dl = __os_download(__os_toRemotePath(rpath));
-		var dl = __os_downloadFile(__os_storage, rpath);
-		
-		if (dl != null)
-		{
-			out = dl;
-		}
+		//out = __os_download(__os_toRemotePath(rpath));
+		out = __os_downloadFile(__os_storage, rpath);
 	}
 	else
 	{
+		if (f == __os_directory_Symbol)
+		{
+			return "";
+		}
+		
 		out = f;
 	}
 	
-	return out;
+	return __os_Native_To_String(out);
 }
 
 function SaveString(str, path)
 {
-	__os_createFileEntry(RealPath(path), str);
+	__os_createFileEntry(RealPath(path), __os_String_To_Native(str));
 }
 
 // This loads all files and folders in 'realPath' specifically.
