@@ -46,7 +46,7 @@ function __os_String_To_ArrayBuffer(fileData)
 	// Truncate data to bytes:
 	for (var i = 0, strLen = fileData.length; i < strLen; i++)
 	{
-		bufView[i] = fileData.charCodeAt(i); // & 0xFF;
+		bufView[i] = fileData[i]; // charCodeAt(i) // & 0xFF;
 	}
 	
 	return buf;
@@ -60,6 +60,17 @@ function __os_Native_To_String(nativeData)
 function __os_Native_To_ArrayBuffer(nativeData)
 {
 	return __os_String_To_ArrayBuffer(nativeData);
+}
+
+function __os_String_To_Native(str)
+{
+	//return __os_String_To_ArrayBuffer(str);
+	return str;
+}
+
+function __os_ArrayBuffer_To_Native(rawData)
+{
+	return __os_ArrayBuffer_To_String(rawData);
 }
 
 // This copies the global 'os' context of the 'parent' environment.
@@ -346,6 +357,12 @@ function __os_getFile(realPath, isEmpty)
 	return f;
 }
 
+// This calls '__os_deleteFileEntries' with recursion enabled. (For safety)
+function __os_safelyDeleteFileEntries(realPath, isDir)
+{
+	return __os_deleteFileEntries(realPath, isDir, true);
+}
+
 function __os_deleteFileEntries(realPath, isDir, recursive) // isDir=false, recursive=false
 {
 	if (__os_directories.hasOwnProperty(realPath)) // isDir
@@ -407,9 +424,30 @@ function __os_deleteFileEntries(realPath, isDir, recursive) // isDir=false, recu
 }
 
 // This attempts to produce a valid MIME-type for 'path'.
-function __os_getMIMEType(path)
+function __os_getMIMEType(realPath) // ext=undefined
 {
 	var blobType;
+	
+	extPos = realPath.lastIndexOf(".");
+	
+	if (extPos != -1)
+	{
+		fullExt = realPath.substring(extPos).toLowerCase(); // ..
+		ext = fullExt.substring(1); // ..
+	}
+	else // if (ext == null)
+	{
+		if (fallback)
+		{
+			// If nothing else could be done, assume PNG:
+			fullExt = ".png";
+			ext = "png"; // fullExt.substring(1); // ..
+		}
+		else
+		{
+			return null;
+		}
+	}
 	
 	if (__os_supportedFile(fullExt, CFG_IMAGE_FILES))
 	{
@@ -474,29 +512,8 @@ function __os_allocateResource(realPath, fallback)
 	// Resolve the file-extension:
 	var extPos, fullExt, ext;
 
-	extPos = realPath.lastIndexOf(".");
-
-	if (extPos != -1)
-	{
-		fullExt = realPath.substring(extPos).toLowerCase(); // ..
-		ext = fullExt.substring(1); // ..
-	}
-	else // if (ext == null)
-	{
-		if (fallback)
-		{
-			// If nothing else could be done, assume PNG:
-			fullExt = ".png";
-			ext = "png"; // fullExt.substring(1); // ..
-		}
-		else
-		{
-			return null;
-		}
-	}
-
 	// Build the resource:
-	var blobType = __os_getMIMEType(fullExt);
+	var blobType = __os_getMIMEType(realPath);
 	
 	if (blobType == null)
 	{
