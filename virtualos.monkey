@@ -213,14 +213,14 @@ Public
 	
 	' API:
 	#If VIRTUALOS_MAP_ENV
-		Function SetEnv:Void(name:String, value:String)
-			__OS_Env.Set(name, value)
+		Function SetEnv:Void(Name:String, Value:String)
+			__OS_Env.Set(Name, Value)
 			
 			Return
 		End
 		
-		Function GetEnv:String(name:String)
-			Return __OS_Env.Get(name)
+		Function GetEnv:String(Name:String)
+			Return __OS_Env.Get(Name)
 		End
 	#End
 	
