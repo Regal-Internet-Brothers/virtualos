@@ -7,8 +7,8 @@ var FILETYPE_FILE = 1;
 var FILETYPE_DIR = 2;
 
 // Internal:
-var __os_directory_prefix = "//";
-var __os_emptyFile_Symbol = "||EMPTY||";
+var __os_directory_Symbol = "||DIR||"; // "//"
+var __os_emptyFile_Symbol = "||EMPTY||"; // "/|E"
 
 // Global variable(s):
 
@@ -323,7 +323,7 @@ function __os_createFileEntryWith(storage, rep, data)
 
 function __os_createFileEntry(rep, data, isDir)
 {
-	if (isDir || data.indexOf(__os_directory_prefix) == 0) // <-- Somewhat inefficient.
+	if (isDir || data == __os_directory_Symbol) // <-- Somewhat inefficient.
 	{
 		__os_directories[rep] = data;
 	}
@@ -629,7 +629,7 @@ function FileType(path)
 	if (file != null)
 	{
 		//if (__os_testSupportedFiles(realPath.toLowerCase()))
-		if (file.indexOf(__os_directory_prefix) != 0)
+		if (file != __os_directory_Symbol)
 		{
 			return FILETYPE_FILE;
 		}
@@ -649,13 +649,7 @@ function FileSize(path)
 	
 	var f = __os_downloadFile(storage, rpath);
 	
-	if (f == null)
-	{
-		return 0; // -1;
-	}
-	
-	//if (f.startsWith(__os_directory_prefix))
-	if (f.indexOf(__os_directory_prefix) == 0)
+	if (f == null || f == __os_directory_Symbol)
 	{
 		return 0; // -1;
 	}
@@ -781,7 +775,7 @@ function LoadDir(path)
 
 function CreateDir(path)
 {
-	__os_createFileEntry(RealPath(path), __os_directory_prefix + path, true); // <-- Prefix added for debugging purposes.
+	__os_createFileEntry(RealPath(path), __os_directory_Symbol, true); // <-- Prefix added for debugging purposes.
 	
 	return true;
 }
