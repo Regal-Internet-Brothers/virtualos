@@ -21,7 +21,13 @@ var __os_emptyFile_symbol = "||EMPTY||"; // "/|E"
 var FILESYSTEM_ENCODING_STRING = 0;
 var FILESYSTEM_ENCODING_BASE64 = 1;
 
-// This is currently reserved. Usage may result in undefined behavior.
+/*
+	Due to the limitations of 'Storage' objects, 'ArrayBuffer' objects
+	may not be used with the file APIs. In other words, they can only
+	be used with custom containers. Since this is the case, multi-session
+	storage is unavailable for this representation.
+*/
+
 var FILESYSTEM_ENCODING_ARRAYBUFFER = 2;
 
 // This acts as the default encoding scheme for file-systems.
@@ -36,7 +42,7 @@ var __os_appargs = [];
 var __os_currentdir = "";
 
 // This specifies the default storage.
-var __os_storage = []; // sessionStorage; // localStorage;
+var __os_storage = {}; // sessionStorage; // localStorage;
 
 // This states if '__os_storage' is a known source (Global 'Storage' object).
 var __os_storage_is_known_source = false; // true;
