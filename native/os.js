@@ -54,6 +54,12 @@ var __os_storage_all_sources = __os_storage_is_known_source; // true;
 // This holds this document's loaded URIs. For details, see: '__os_allocateResource'.
 var __os_resources = {};
 
+// If enabled, this will keep track of invalid remote paths.
+var __os_log_failed_remote_paths = true;
+
+// This stores failed paths if '__os_log_failed_remote_paths' is enabled.
+var __os_failed_remote_paths = [];
+
 // This is used to force re-downloads of remote files. (Unfinished behavior)
 var __os_badcache = false;
 
@@ -119,6 +125,31 @@ function __os_getFileSystemEncoding()
 function __os_setFileSystemEncoding(type)
 {
 	__os_storage[__os_filesystem_type_symbol] = type;
+}
+
+function __os_enableResponseLogging(clear)
+{
+	__os_log_failed_remote_paths = true;
+	
+	if (clear)
+	{
+		__os_clearLoggedResponses();
+	}
+}
+
+function __os_disableResponseLogging(clear)
+{
+	__os_log_failed_remote_paths = false;
+	
+	if (clear)
+	{
+		__os_clearLoggedResponses();
+	}
+}
+
+function __os_clearLoggedResponses()
+{
+	__os_failed_remote_paths = [];
 }
 
 // Implementation-level:
@@ -411,6 +442,23 @@ function __os_download_as_string(url)
 
 function __os_download_raw(url)
 {
+	if (__os_log_failed_remote_paths)
+	{
+		var urlPos = __os_failed_remote_paths.indexOf(url);
+		
+		if (urlPos != -1)
+		{
+			if (__os_badcache)
+			{
+				__os_failed_remote_paths.splice(urlPos, 1);
+			}
+			else
+			{
+				return null;
+			}
+		}
+	}
+	
 	var xhr = new XMLHttpRequest();
 	
 	try
@@ -443,6 +491,11 @@ function __os_download_raw(url)
 	catch (ex)
 	{
 		// Nothing so far.
+	}
+	
+	if (!__os_badcache && __os_log_failed_remote_paths)
+	{
+		__os_failed_remote_paths.push(url);
 	}
 }
 
