@@ -371,6 +371,13 @@ function __os_inheritParent()
 	__os_currentdir = parent.__os_currentdir;
 	__os_storage = parent.__os_storage;
 	
+	__os_storage_is_known_source = parent.__os_storage_is_known_source;
+	__os_storage_all_sources = parent.__os_storage_all_sources;
+	
+	__os_log_failed_remote_paths = parent.__os_log_failed_remote_paths;
+	__os_failed_remote_paths = parent.__os_failed_remote_paths;
+	
+	//__os_resource_generator = parent.__os_resource_generator;
 	//__os_badcache = parent.__os_badcache;
 }
 
@@ -917,30 +924,48 @@ function __os_allocateResource(realPath, fallback)
 
 // This command is considered unsafe, and should only be used under controlled environments.
 // The behavior of the symbolized resource is undefined after calling this.
-function __os_deallocateResource(realPath)
+// The 'keepEntry' argument should only be 'true' when destructing all of '__os_resources'.
+function __os_deallocateResource(realPath, keepEntry) // keepEntry=false
 {
 	var uri = __os_resources[realPath];
 	__os_revokeResource(uri);
 	
-	delete __os_resources[realPath];
+	if (!keepEntry)
+	{
+		delete __os_resources[realPath];
+	}
 	
 	return true;
 }
 
 // These two commands obtain and revoke/release system-resources:
 
-// Calling this is considered unsafe, and therefore should not be used in conjunction with automatic resource management.
+// Calling this is considered unsafe, and therefore should not be
+// used in conjunction with automatic resource management.
 // For that, you should use '__os_allocateResource', instead.
 function __os_obtainResource(blob)
 {
 	return __os_resource_generator.createObjectURL(blob);
 }
 
-// Calling this is considered unsafe, and therefore should not be used in conjunction with automatic resource management.
+// Calling this is considered unsafe, and therefore should not be
+// used in conjunction with automatic resource management.
 // For that, you should use '__os_deallocateResource', instead.
 function __os_revokeResource(uri)
 {
 	__os_resource_generator.revokeObjectURL(uri);
+}
+
+// This is considered highly unsafe, and should only
+// be used when completely sure of the consequences.
+function __os_destroyResources()
+{
+	for (var resource in __os_resources)
+	{
+		__os_deallocateResource(resource, true);
+	}
+	
+	__os_resources = {};
 }
 
 // API:
