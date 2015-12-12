@@ -1218,8 +1218,10 @@ function Execute(cmd)
 {
 	if (typeof __exec == 'function')
 	{
-		__exec(cmd);
+		return __exec(cmd);
 	}
+	
+	return 1; // -1;
 }
 
 function ExitApp(retCode)
