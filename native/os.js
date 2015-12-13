@@ -1,8 +1,8 @@
 
 /*
 	META:
-		Native 'Storage' format: Base64
-		Native 'Storage' object: 'sessionStorage'
+		Native 'Storage' format: String
+		Native 'Storage' object: 'localStorage'
 */
 
 // Constant variable(s):
@@ -12,8 +12,14 @@ var FILETYPE_NONE = 0;
 var FILETYPE_FILE = 1;
 var FILETYPE_DIR = 2;
 
+// File-time macro(s):
+var FILETIME_NONE = 0; // -1
+
 // Internal:
 var __os_filesystem_type_symbol = "||__os_filesystem_type||";
+var __os_filesystem_time_map_symbol = "||__os_filesystem_time_map||";
+var __os_filesystem_time_map_toggle_symbol = "||__os_filesystem_time_map_toggle||"
+
 var __os_directory_symbol = "||DIR||"; // "//"
 var __os_emptyFile_symbol = "||EMPTY||"; // "/|E"
 
@@ -31,7 +37,7 @@ var FILESYSTEM_ENCODING_BASE64 = 1;
 var FILESYSTEM_ENCODING_ARRAYBUFFER = 2;
 
 // This acts as the default encoding scheme for file-systems.
-var FILESYSTEM_ENCODING_DEFAULT = FILESYSTEM_ENCODING_ARRAYBUFFER; // FILESYSTEM_ENCODING_STRING; // FILESYSTEM_ENCODING_BASE64;
+var FILESYSTEM_ENCODING_DEFAULT = FILESYSTEM_ENCODING_STRING; // FILESYSTEM_ENCODING_ARRAYBUFFER // FILESYSTEM_ENCODING_BASE64;
 
 // Global variable(s):
 
@@ -42,14 +48,14 @@ var __os_appargs = [];
 var __os_currentdir = "";
 
 // This specifies the default storage.
-var __os_storage = {}; // sessionStorage; // localStorage;
+var __os_storage = localStorage; // {}; // sessionStorage;
 
 // This states if '__os_storage' is a known source (Global 'Storage' object).
-var __os_storage_is_known_source = false; // true;
+var __os_storage_is_known_source = true; // false; // true;
 
 // This states if all known sources should be checked when performing abstract file-operations.
 // This should only be enabled when using a known source for storage.
-var __os_storage_all_sources = __os_storage_is_known_source; // true;
+var __os_storage_all_sources = false; // __os_storage_is_known_source; // true;
 
 // This holds this document's loaded URIs. For details, see: '__os_allocateResource'.
 var __os_resources = {};
@@ -58,9 +64,21 @@ var __os_resources = {};
 var __os_log_failed_remote_paths = true;
 
 // This stores failed paths if '__os_log_failed_remote_paths' is enabled.
+// This has no long-term storage guarantee.
 var __os_failed_remote_paths = [];
 
-// This is used to force re-downloads of remote files. (Unfinished behavior)
+/*
+	A path-map of known file-times.
+	Ideally, this should be loaded before use.
+	For details, see: '__os_load_filesystem_time_map'.
+	
+	When you want to store this map for
+	storage-defined durations, use '__os_save_filesystem_time_map'.
+*/
+
+var __os_filesystem_time_map = {};
+
+// This is used to force re-downloads of remote files.
 var __os_badcache = false;
 
 // This is used to generate handles to resources.
@@ -73,7 +91,7 @@ var __os_resource_generator = window.URL || window.webkitURL;
 // Changing this on normal runtime will result in horribly undefined behavior, usually leading to corruption.
 // If you wish to change the internal storage mechanism, do it before anything else.
 // Transferral of containers is unsupported, and will need to be handled by the caller.
-function __os_setFileSystemContainer(container, disallowMultiSource)
+function __os_set_FileSystemContainer(container, disallowMultiSource)
 {
 	if (container == sessionStorage || container == localStorage)
 	{
@@ -105,7 +123,7 @@ function __os_getFileSystemContainer()
 // This represents the native encoding scheme. (DO NOT MODIFY; see '__os_setFileSystemEncoding')
 function __os_getFileSystemEncoding()
 {
-	if (__os_storage.hasOwnProperty(__os_filesystem_type_symbol))
+	if (__os_hasFileSystemEncoding())
 	{
 		// Unfortunately, everything is a string in 'Storage' objects.
 		return Number(__os_storage[__os_filesystem_type_symbol]);
@@ -118,13 +136,93 @@ function __os_getFileSystemEncoding()
 	return type;
 }
 
+// This checks if '__os_storage' contains '__os_filesystem_type_symbol'.
+function __os_hasFileSystemEncoding()
+{
+	return __os_storage.hasOwnProperty(__os_filesystem_type_symbol);
+}
+
 // Changing this on normal runtime will result in horribly undefined behavior, usually leading to corruption.
 // Similarly, do not change this if you're using persistent storage, like 'localStorage'.
 // As a rule of thumb, if you're going to call this, do it before anything else.
 // If this is not first called, it will be called internally using the default type.
 function __os_setFileSystemEncoding(type)
 {
+	/*
+		if (__os_hasFileSystemEncoding())
+		{
+			return false;
+		}
+	*/
+	
 	__os_storage[__os_filesystem_type_symbol] = type;
+	
+	// Return the default response.
+	return true;
+}
+
+// This is used to toggle logging of tile-times.
+//var __os_log_file_times = true
+
+// This toggles file-time logging with the file-system.
+// The return-value indicates if the value was changed or not.
+function __os_set_should_log_filesystem_times(value)
+{
+	__os_storage[__os_filesystem_time_map_toggle_symbol] = Number(value);
+	
+	return value;
+}
+
+// This states if the file-system should log file-times.
+function __os_get_should_log_filesystem_times()
+{
+	if (__os_storage.hasOwnProperty(__os_filesystem_time_map_toggle_symbol))
+	{
+		return Number(__os_storage[__os_filesystem_time_map_toggle_symbol]);
+	}
+	
+	// Return the default response.
+	return true;
+}
+
+// This loads the file-system's file-time data from '__os_storage', if available.
+function __os_load_filesystem_time_map(keepOnFailure)
+{
+	var entry = __os_storage[__os_filesystem_time_map_symbol];
+	
+	if (entry != null)
+	{
+		__os_filesystem_time_map = JSON.parse(entry);
+		__os_set_log_filesystem_times(true);
+		
+		return true;
+	}
+	
+	if (!keepOnFailure)
+	{
+		__os_filesystem_time_map = {};
+	}
+	
+	return false;
+}
+
+// This saves the file-system's file-time data to '__os_storage'.
+function __os_save_filesystem_time_map(clearOnSave) // clearOnSave=false
+{
+	if (__os_filesystem_time_map.length > 0)
+	{
+		__os_storage[__os_filesystem_time_map_symbol] = JSON.stringify(__os_filesystem_time_map);
+		
+		if (clearOnSave)
+		{
+			__os_filesystem_time_map = {};
+		}
+		
+		return true;
+	}
+	
+	// Return the default response.
+	return false;
 }
 
 function __os_enableResponseLogging(clear)
@@ -186,19 +284,19 @@ function __os_ArrayBuffer_To_String(rawData, chunk_size)
 	return content;
 }
 
-function __os_String_To_ArrayBuffer(fileData)
+function __os_String_To_ArrayBuffer(str)
 {
-	if (fileData == null)
+	if (str == null)
 	{
 		return null;
 	}
 	
-	var buf = new ArrayBuffer(fileData.length);
+	var buf = new ArrayBuffer(str.length);
 	var bufView = new Uint8Array(buf);
 	
-	for (var i = 0, strLen = fileData.length; i < strLen; i++)
+	for (var i = 0, strLen = str.length; i < strLen; i++)
 	{
-		bufView[i] = (fileData.charCodeAt(i)); // [i] // & 0xFF;
+		bufView[i] = (str.charCodeAt(i)); // [i] // & 0xFF;
 	}
 	
 	return buf;
@@ -266,6 +364,25 @@ function __os_ArrayBuffer_To_Base64(rawData)
 }
 
 // Abstraction layer:
+function __os_nativeSize(nativeData)
+{
+	switch (__os_getFileSystemEncoding())
+	{
+		case FILESYSTEM_ENCODING_STRING:
+			return nativeData.length;
+		case FILESYSTEM_ENCODING_ARRAYBUFFER:
+			return nativeData.byteLength;
+		case FILESYSTEM_ENCODING_BASE64:
+			if (CFG_VIRTUALOS_CARE_ABOUT_SIZES !== undefined)
+			{
+				// This is horribly slow, but the only way to do this accurately.
+				return __os_Native_To_String(nativeData).length;
+			}
+			
+			return nativeData.length;
+	}
+}
+
 function __os_Native_To_String(nativeData)
 {
 	switch (__os_getFileSystemEncoding())
@@ -381,9 +498,50 @@ function __os_inheritParent()
 	//__os_badcache = parent.__os_badcache;
 }
 
-function __os_setAppArgs(args)
+// Capitalized to ensure association ('AppArgs' command).
+function __os_set_AppArgs(args)
 {
 	__os_appargs = args
+}
+
+// This gets the file-time of 'realPath'.
+function __os_get_FileTime(realPath)
+{
+	if (__os_filesystem_time_map.hasOwnProperty(realPath))
+	{
+		return __os_filesystem_time_map[realPath];
+	}
+	
+	// Return the default response.
+	return FILETIME_NONE;
+}
+
+// This sets the file-time of 'realPath' using 'time'.
+function __os_set_FileTime(realPath, time)
+{
+	/*
+		if (!fileTimesEnabled)
+		{
+			return false;
+		}
+	*/
+	
+	__os_filesystem_time_map[realPath] = time;
+	
+	// Return the default response.
+	return true;
+}
+
+// This removes a time-data entry from the file-system. (Use at your own risk)
+function __os_remove_FileTime(realPath)
+{
+	delete __os_filesystem_time_map[realPath];
+}
+
+// This function is highly unsafe, and should be avoided, unless you know exactly what you're doing.
+function __os_clear_FileTimes()
+{
+	__os_filesystem_time_map = {}
 }
 
 // This DOES NOT call 'RealPath', please call that first.
@@ -413,26 +571,11 @@ function __os_toRemotePath(realPath)
 	return (output + realPath);
 }
 
-/*
-	// This is a hack, as we currently retrieve a string anyway, but this is future-proof:
-	function __os_download_as_string(url)
-	{
-		var nativeData = __os_download(url);
-		
-		if (nativeData == null)
-		{
-			return null;
-		}
-		
-		return __os_Native_To_String(nativeData);
-	}
-*/
-
 // This downloads from 'url', and returns the file's data.
 // If no file was found, the return-value is undefined.
-function __os_download(url)
+function __os_download(url, lastTime, out_ext) // lastTime=null
 {
-	var rawData = __os_download_as_string(url); // __os_download_raw(url);
+	var rawData = __os_download_as_string(url, lastTime, out_ext); // __os_download_raw(url, lastTime);
 	
 	if (rawData == null)
 	{
@@ -442,12 +585,12 @@ function __os_download(url)
 	return __os_String_To_Native(rawData);
 }
 
-function __os_download_as_string(url)
+function __os_download_as_string(url, lastTime, out_ext) // lastTime=null
 {
-	return __os_download_raw(url);
+	return __os_download_raw(url, lastTime, out_ext);
 }
 
-function __os_download_raw(url)
+function __os_download_raw(url, lastTime, out_ext) // lastTime=null
 {
 	if (__os_log_failed_remote_paths)
 	{
@@ -457,6 +600,7 @@ function __os_download_raw(url)
 		{
 			if (__os_badcache)
 			{
+				// Remove this URL from our list.
 				__os_failed_remote_paths.splice(urlPos, 1);
 			}
 			else
@@ -471,28 +615,50 @@ function __os_download_raw(url)
 	try
 	{
 		xhr.open("GET", url, false); // "HEAD"
-		//xhr.responseType = "arraybuffer";
 		
-		// For now, we don't care about file updates.
-		// This is something to look into later:
 		//xhr.overrideMimeType('text/plain');
 		//xhr.overrideMimeType("application/octet-stream");
 		xhr.overrideMimeType("text/plain ; charset=x-user-defined");
-		xhr.setRequestHeader("Cache-Control", "no-cache");
-		xhr.setRequestHeader("Pragma", "no-cache");
-		xhr.setRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
+		
+		if (lastTime !== undefined && lastTime != FILETIME_NONE)
+		{
+			xhr.setRequestHeader("If-Modified-Since", new Date(lastTime));
+		}
+		else
+		{
+			xhr.setRequestHeader("Cache-Control", "no-cache");
+			xhr.setRequestHeader("Pragma", "no-cache");
+			xhr.setRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
+		}
+		
 		//xhr.setRequestHeader("Cache-Control", "must-revalidate");
 		
 		xhr.send(null);
 		
+		// Check if 'out_ext' was defined:
+		if (out_ext !== undefined)
+		{
+			var lastModified = xhr.getResponseHeader("Last-Modified");
+			
+			var test = xhr.getAllResponseHeaders();
+			
+			if (lastModified)
+			{
+				out_ext[0] = Date.parse(lastModified); // out_ext.push(..);
+			}
+			else
+			{
+				out_ext[0] = FILETIME_NONE; // out_ext.push(..);
+			}
+		}
+		
 		switch (xhr.status)
 		{
-			case 0:
 			case 304:
-			case 200:
-				return xhr.responseText; // xhr.response;
-				
 				break;
+			case 0:
+			case 200:
+				return xhr.responseText; break; // xhr.response;
 		}
 	}
 	catch (ex)
@@ -513,14 +679,42 @@ function __os_downloadFileUsingRep(storage, url, rep, isEmpty) // isEmpty=false
 	
 	if (isEmpty || repValue == null || __os_badcache || repValue == __os_emptyFile_symbol) // === undefined
 	{
-		var data = __os_download(url);
+		var fileTimesEnabled = __os_get_should_log_filesystem_times();
 		
-		if (data != null)
+		var data;
+		
+		if (fileTimesEnabled)
 		{
-			__os_createFileEntryWith(storage, rep, data);
+			var out = [FILETIME_NONE]; // <-- Just to be safe.
+			var currentFileTime = __os_get_FileTime(rep);
+			
+			data = __os_download(url, currentFileTime, out);
+			
+			if (data != null)
+			{
+				if (out.length > 0)
+				{
+					if (out[0] != FILETIME_NONE)
+					{
+						__os_set_FileTime(rep, out[0]);
+					}
+				}
+			}
+		}
+		else
+		{
+			data = __os_download(url);
 		}
 		
-		return data;
+		// Make sure we have data to work with:
+		if (data != null)
+		{
+			// Build a file-entry for this element.
+			__os_createFileEntryWith(storage, rep, data);
+			
+			// Return the raw data we loaded.
+			return data;
+		}
 	}
 	
 	return repValue;
@@ -778,7 +972,14 @@ function __os_removeStorageEntry(storage, realPath, isDir, recursive, value) // 
 	
 	if (value != null)
 	{
-		delete storage[realPath];
+		if (typeof storage.removeItem === "function")
+		{
+			storage.removeItem(realPath);
+		}
+		else
+		{
+			delete storage[realPath];
+		}
 		
 		if (isDir === undefined && value == __os_directory_symbol)
 		{
@@ -795,14 +996,14 @@ function __os_removeStorageEntry(storage, realPath, isDir, recursive, value) // 
 			if (e.indexOf(realPath) == 0)
 			{
 				var lastSlash = e.lastIndexOf("/");
-				var ePath = e.substring(0, lastSlash-1);
+				var ePath = e.substring(0, lastSlash);
 				
 				// Remove only what we need to: If we're doing this
 				// recursively, delete everything, but if not,
 				// make sure this isn't a sub-directory:
 				if ((recursive || lastSlash < realPath.length))
 				{
-					__os_removeStorageEntry(storage, ePath, undefined, recursive, e); // 'isDir' may need to be calculated later.
+					__os_removeStorageEntry(storage, e, undefined, recursive); // 'isDir' may need to be calculated later.
 				}
 			}
 		}
@@ -814,7 +1015,7 @@ function __os_removeStorageEntry(storage, realPath, isDir, recursive, value) // 
 }
 
 // This attempts to produce a valid MIME-type for 'path'.
-function __os_getMIMEType(realPath) // ext=undefined
+function __os_get_MIMEType(realPath) // ext=undefined
 {
 	var blobType;
 	
@@ -903,7 +1104,7 @@ function __os_allocateResource(realPath, fallback)
 	var extPos, fullExt, ext;
 	
 	// Build the resource:
-	var blobType = __os_getMIMEType(realPath);
+	var blobType = __os_get_MIMEType(realPath);
 	
 	if (blobType == null)
 	{
@@ -1076,6 +1277,13 @@ function FileType(path)
 	return FILETYPE_NONE;
 }
 
+function FileTime(path)
+{
+	var rpath = RealPath(path);
+	
+	return __os_get_FileTime(rpath);
+}
+
 function FileSize(path)
 {
 	var rpath = RealPath(path);
@@ -1086,7 +1294,7 @@ function FileSize(path)
 		return 0; // -1;
 	}
 	
-	return f.length;
+	return __os_nativeSize(f);
 }
 
 function CopyFile(src, dst)

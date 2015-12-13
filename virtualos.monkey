@@ -6,6 +6,11 @@ Public
 #VIRTUALOS_FLAG_OS = True
 #VIRTUALOS_STANDALONE = True
 
+' This is used by native implementations if necessary.
+' Disable this if you are sure the exact value
+' of 'FileSize' doesn't matter (Excluding 0).
+#VIRTUALOS_CARE_ABOUT_SIZES = True
+
 #If TARGET = "html5"
 	#VIRTUALOS_JS_TARGET = True
 #End
@@ -14,7 +19,7 @@ Public
 	#VIRTUALOS_IMPLEMENTED = True
 	
 	#VIRTUALOS_MAP_ENV = True
-	#VIRTUALOS_MAP_FILETIMES = True
+	'#VIRTUALOS_MAP_FILETIMES = True
 	
 	#VIRTUALOS_EXTENSION_DL = True
 	#VIRTUALOS_EXTENSION_VFILE = True
@@ -187,6 +192,11 @@ Public
 	' Extensions:
 	#If VIRTUALOS_EXTENSION_REMOTEPATH
 		Function __OS_ToRemotePath:String(RealPath:String)="__os_toRemotePath"
+	#End
+	
+	#If VIRTUALOS_EXTENSION_CUSTOM_FILETIMES
+		Function __OS_SetFileTime:Void(RealPath:String, Time:Int)="__os_set_FileTime"
+		Function __OS_RemoveFileTime:Void(RealPath:String)="__os_remove_FileTime"
 	#End
 	
 	#If VIRTUALOS_EXTENSION_DL
@@ -450,6 +460,16 @@ Public
 			
 			Return
 		End
+	#Else
+		#If Not VIRTUALOS_EXTENSION_CUSTOM_FILETIMES
+			Function __OS_SetFileTime:Void(RealPath:String, Time:Int)
+				Return
+			End
+			
+			Function __OS_RemoveFileTime:Void(RealPath:String)
+				Return
+			End
+		#End
 	#End
 	
 	#If VIRTUALOS_EXTENSION_VFILE
@@ -487,6 +507,16 @@ Public
 			Next
 			
 			Return Rep
+		End
+		
+		Function __OS_ParseFileSystem_CreateFileEntry:Void(Entry:String, IsFileDescriptor:Bool)
+			If (IsFileDescriptor) Then
+				__OS_CreateFileLink(RealPath(Entry)) ' __OS_DownloadFile(__OS_Storage, RealPath(Entry))
+			Else
+				CreateDir(Entry)
+			Endif
+			
+			Return
 		End
 		
 		' A simple parser that takes each line of a 'Stream', and decodes a folder structure from the input.
@@ -558,6 +588,8 @@ Public
 					If (Time_First <> STRING_INVALID_LOCATION) Then
 						Local Processed_E:= E[..Time_First]
 						
+						__OS_ParseFileSystem_CreateFileEntry(Processed_E, IsFileDescriptor)
+						
 						#If VIRTUALOS_MAP_FILETIMES
 							Local Time_Second:= E.Find("]")
 							
@@ -569,14 +601,8 @@ Public
 								Endif
 							Endif
 						#End
-						
-						E = Processed_E
-					Endif
-					
-					If (IsFileDescriptor) Then
-						__OS_CreateFileLink(RealPath(E)) ' __OS_DownloadFile(__OS_Storage, RealPath(E))
 					Else
-						CreateDir(E)
+						__OS_ParseFileSystem_CreateFileEntry(E, IsFileDescriptor)
 					Endif
 				Next
 			Wend
