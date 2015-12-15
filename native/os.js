@@ -265,7 +265,7 @@ function __os_ArrayBuffer_To_String(rawData, chunk_size)
 		chunk_size = 1024;
 	}
 	
-	var content = new String();
+	var content = ""; // new String();
 	
 	var bytesLeft = rawData.byteLength;
 	var offset = 0;
@@ -986,6 +986,11 @@ function __os_removeStorageEntry(storage, realPath, isDir, recursive, value) // 
 			isDir = true;
 		}
 		
+		if (!isDir)
+		{
+			__os_remove_FileTime(realPath);
+		}
+		
 		response = true;
 	}
 	
@@ -1310,6 +1315,9 @@ function CopyFile(src, dst)
 	var rdst = RealPath(dst);
 	
 	__os_createFileEntry(rdst, f);
+	
+	// Update this entry's file-time.
+	__os_set_FileTime(rdst, __os_get_FileTime(rsrc));
 	
 	// Return the default response.
 	return true;
