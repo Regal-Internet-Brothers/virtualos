@@ -383,6 +383,18 @@ function __os_nativeSize(nativeData)
 	}
 }
 
+function __os_nativeEmpty()
+{
+	switch (__os_getFileSystemEncoding())
+	{
+		case FILESYSTEM_ENCODING_ARRAYBUFFER:
+			return null; // new ArrayBuffer();
+		case FILESYSTEM_ENCODING_STRING:
+		case FILESYSTEM_ENCODING_BASE64:
+			return "";
+	}
+}
+
 function __os_Native_To_String(nativeData)
 {
 	switch (__os_getFileSystemEncoding())
@@ -710,10 +722,11 @@ function __os_downloadFileUsingRep(storage, url, rep, isEmpty) // isEmpty=false
 		if (data != null)
 		{
 			// Build a file-entry for this element.
-			__os_createFileEntryWith(storage, rep, data);
-			
-			// Return the raw data we loaded.
-			return data;
+			if (__os_createFileEntryWith(storage, rep, data))
+			{
+				// Return the raw data we loaded.
+				return data;
+			}
 		}
 	}
 	
@@ -885,12 +898,20 @@ function __os_storageLookup(realPath)
 
 function __os_createFileEntryWith(storage, rep, data)
 {
-	storage[rep] = data;
+	var currentEntry = storage[rep];
+	
+	if (!__os_safe || currentEntry == null || currentEntry == __os_nativeEmpty())
+	{
+		storage[rep] = data;
+	}
+	
+	// Return the default response.
+	return true;
 }
 
 function __os_createFileEntry(rep, data, isDir)
 {
-	__os_createFileEntryWith(__os_storage, rep, data);
+	return __os_createFileEntryWith(__os_storage, rep, data);
 }
 
 // This creates a "file link". "File links" are basically 'to-be-loaded'
@@ -898,7 +919,7 @@ function __os_createFileEntry(rep, data, isDir)
 // This command is abstract from the underlying storage system.
 function __os_createFileLink(rep)
 {
-	__os_createFileEntry(rep, __os_emptyFile_symbol, false);
+	return __os_createFileEntry(rep, __os_emptyFile_symbol, false);
 }
 
 // This gets a file using 'realPath' from a remote host.
@@ -1314,7 +1335,10 @@ function CopyFile(src, dst)
 	
 	var rdst = RealPath(dst);
 	
-	__os_createFileEntry(rdst, f);
+	if (!__os_createFileEntry(rdst, f))
+	{
+		return false;
+	}
 	
 	// Update this entry's file-time.
 	__os_set_FileTime(rdst, __os_get_FileTime(rsrc));
@@ -1342,7 +1366,7 @@ function LoadString(path)
 
 function SaveString(str, path)
 {
-	__os_createFileEntry(RealPath(path), __os_String_To_Native(str));
+	return __os_createFileEntry(RealPath(path), __os_String_To_Native(str));
 }
 
 // This loads all files and folders in 'realPath' specifically.
@@ -1396,11 +1420,14 @@ function LoadDir(path)
 	return [];
 }
 
+function CreateFile(path)
+{
+	return __os_createFileEntry(RealPath(path), __os_nativeEmpty());
+}
+
 function CreateDir(path)
 {
-	__os_createFileEntry(RealPath(path), __os_directory_symbol, true); // <-- Prefix added for debugging purposes.
-	
-	return true;
+	return __os_createFileEntry(RealPath(path), __os_directory_symbol, true); // <-- Prefix added for debugging purposes.
 }
 
 function DeleteDir(path, recursive) // recursive=false
