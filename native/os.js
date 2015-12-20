@@ -1041,7 +1041,7 @@ function __os_removeStorageEntry(storage, realPath, isDir, recursive, value) // 
 }
 
 // This attempts to produce a valid MIME-type for 'path'.
-function __os_get_MIMEType(realPath) // ext=undefined
+function __os_get_MIMEType(realPath, fallback) //fallback=false
 {
 	var blobType;
 	
@@ -1130,7 +1130,7 @@ function __os_allocateResource(realPath, fallback)
 	var extPos, fullExt, ext;
 	
 	// Build the resource:
-	var blobType = __os_get_MIMEType(realPath);
+	var blobType = __os_get_MIMEType(realPath, fallback);
 	
 	if (blobType == null)
 	{
