@@ -61,11 +61,11 @@ var __os_storage_all_sources = false; // __os_storage_is_known_source; // true;
 var __os_resources = {};
 
 // If enabled, this will keep track of invalid remote paths.
-var __os_log_failed_remote_paths = true;
+var __os_should_log_remote_file_responses = true;
 
-// This stores failed paths if '__os_log_failed_remote_paths' is enabled.
+// This stores remote file-responses if '__os_should_log_remote_file_responses' is enabled.
 // This has no long-term storage guarantee.
-var __os_failed_remote_paths = [];
+var __os_remote_file_responses = {};
 
 /*
 	A path-map of known file-times.
@@ -231,7 +231,7 @@ function __os_save_filesystem_time_map(clearOnSave) // clearOnSave=false
 
 function __os_enableResponseLogging(clear)
 {
-	__os_log_failed_remote_paths = true;
+	__os_should_log_remote_file_responses = true;
 	
 	if (clear)
 	{
@@ -241,7 +241,7 @@ function __os_enableResponseLogging(clear)
 
 function __os_disableResponseLogging(clear)
 {
-	__os_log_failed_remote_paths = false;
+	__os_should_log_remote_file_responses = false;
 	
 	if (clear)
 	{
@@ -251,7 +251,7 @@ function __os_disableResponseLogging(clear)
 
 function __os_clearLoggedResponses()
 {
-	__os_failed_remote_paths = [];
+	__os_remote_file_responses = {};
 }
 
 // Implementation-level:
@@ -507,8 +507,8 @@ function __os_inheritParent()
 	__os_storage_is_known_source = parent.__os_storage_is_known_source;
 	__os_storage_all_sources = parent.__os_storage_all_sources;
 	
-	__os_log_failed_remote_paths = parent.__os_log_failed_remote_paths;
-	__os_failed_remote_paths = parent.__os_failed_remote_paths;
+	__os_should_log_remote_file_responses = parent.__os_should_log_remote_file_responses;
+	__os_remote_file_responses = parent.__os_remote_file_responses;
 	
 	//__os_resource_generator = parent.__os_resource_generator;
 	//__os_badcache = parent.__os_badcache;
@@ -608,20 +608,20 @@ function __os_download_as_string(url, lastTime, out_ext) // lastTime=null
 
 function __os_download_raw(url, lastTime, out_ext) // lastTime=null
 {
-	if (__os_log_failed_remote_paths)
+	if (__os_should_log_remote_file_responses)
 	{
-		var urlPos = __os_failed_remote_paths.indexOf(url);
-		
-		if (urlPos != -1)
+		if (__os_remote_file_responses.hasOwnProperty(url))
 		{
 			if (__os_badcache)
 			{
-				// Remove this URL from our list.
-				__os_failed_remote_paths.splice(urlPos, 1);
+				delete __os_remote_file_responses[url]
 			}
 			else
 			{
-				return null;
+				if (!__os_remote_file_responses[url])
+				{
+					return null;
+				}
 			}
 		}
 	}
@@ -635,6 +635,8 @@ function __os_download_raw(url, lastTime, out_ext) // lastTime=null
 		//xhr.overrideMimeType('text/plain');
 		//xhr.overrideMimeType("application/octet-stream");
 		xhr.overrideMimeType("text/plain ; charset=x-user-defined");
+		
+		print("lastTime: " + lastTime);
 		
 		if (lastTime !== undefined && lastTime != FILETIME_NONE)
 		{
@@ -674,6 +676,11 @@ function __os_download_raw(url, lastTime, out_ext) // lastTime=null
 				break;
 			case 0:
 			case 200:
+				if (__os_should_log_remote_file_responses)
+				{
+					__os_remote_file_responses[url] = true;
+				}
+				
 				return xhr.responseText; break; // xhr.response;
 		}
 	}
@@ -682,9 +689,9 @@ function __os_download_raw(url, lastTime, out_ext) // lastTime=null
 		// Nothing so far.
 	}
 	
-	if (!__os_badcache && __os_log_failed_remote_paths)
+	if (!__os_badcache && __os_should_log_remote_file_responses)
 	{
-		__os_failed_remote_paths.push(url);
+		__os_remote_file_responses[url] = false;
 	}
 }
 
@@ -693,7 +700,18 @@ function __os_downloadFileUsingRep(storage, url, rep, isEmpty) // isEmpty=false
 {
 	var repValue = storage[rep];
 	
-	if (isEmpty || repValue == null || __os_badcache || repValue == __os_emptyFile_symbol) // === undefined
+	if
+	(
+		(isEmpty)
+		||
+		(__os_badcache)
+		||
+		(repValue == __os_emptyFile_symbol)
+		||
+		(__os_should_log_remote_file_responses && !__os_remote_file_responses.hasOwnProperty(url))
+		||
+		(repValue == null) // === undefined
+	)
 	{
 		var fileTimesEnabled = __os_get_should_log_filesystem_times();
 		
@@ -726,7 +744,7 @@ function __os_downloadFileUsingRep(storage, url, rep, isEmpty) // isEmpty=false
 		if (data != null)
 		{
 			// Build a file-entry for this element.
-			if (__os_createFileEntryWith(storage, rep, data))
+			if (__os_createFileEntryWith(storage, rep, data, true)) // false
 			{
 				// Return the raw data we loaded.
 				return data;
@@ -900,11 +918,11 @@ function __os_storageLookup(realPath)
 	}
 }
 
-function __os_createFileEntryWith(storage, rep, data)
+function __os_createFileEntryWith(storage, rep, data, force) //force=false
 {
 	var currentEntry = storage[rep];
 	
-	if (!__os_safe || currentEntry == null || currentEntry == __os_nativeEmpty())
+	if (force || (!__os_safe || currentEntry == null || currentEntry == __os_emptyFile_symbol || currentEntry == __os_nativeEmpty()))
 	{
 		storage[rep] = data;
 	}
@@ -1271,7 +1289,7 @@ function RealPath(path)
 }
 
 // This attempts to recognize the "file-type" of 'path'. (Uses supported files)
-function FileType(path)
+function FileType(path, skip_request) //skip_request=false
 {
 	var realPath = RealPath(path);
 	
@@ -1280,14 +1298,17 @@ function FileType(path)
 	
 	var isEmpty;
 	
-	// Check if we don't have an entry to view:
-	if (file == null || (isEmpty = (file == __os_emptyFile_symbol))) // Set 'isEmpty', and check it.
+	if (!skip_request)
 	{
-		// Check if we could load this file using the current file-system:
-		if (isEmpty || __os_fileCouldExist(realPath))
+		// Check if we don't have an entry to view:
+		if (file == null || (isEmpty = (file == __os_emptyFile_symbol))) // Set 'isEmpty', and check it.
 		{
-			// Try to load our file from the server.
-			file = __os_getFile(realPath, isEmpty);
+			// Check if we could load this file using the current file-system:
+			if (isEmpty || __os_fileCouldExist(realPath))
+			{
+				// Try to load our file from the server.
+				file = __os_getFile(realPath, isEmpty);
+			}
 		}
 	}
 	
