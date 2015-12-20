@@ -544,11 +544,15 @@ function __os_inheritParent()
 	__os_currentdir = parent.__os_currentdir;
 	__os_storage = parent.__os_storage;
 	
+	__os_safe = parent.__os_safe;
+	
 	__os_storage_is_known_source = parent.__os_storage_is_known_source;
 	__os_storage_all_sources = parent.__os_storage_all_sources;
 	
 	__os_should_log_remote_file_responses = parent.__os_should_log_remote_file_responses;
 	__os_remote_file_responses = parent.__os_remote_file_responses;
+	
+	__os_filesystem_time_map = parent.__os_filesystem_time_map;
 	
 	//__os_resource_generator = parent.__os_resource_generator;
 	//__os_badcache = parent.__os_badcache;
