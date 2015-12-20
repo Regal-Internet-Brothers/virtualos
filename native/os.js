@@ -81,6 +81,10 @@ var __os_filesystem_time_map = {};
 // This is used to force re-downloads of remote files.
 var __os_badcache = false;
 
+// This is used internally when an unsafe operation is applied.
+// If this is 'false', fallback behavior may be used implicitly.
+var __os_safe = false; // true;
+
 // This is used to generate handles to resources.
 var __os_resource_generator = window.URL || window.webkitURL;
 
@@ -1112,7 +1116,7 @@ function __os_get_MIMEType(realPath, fallback) //fallback=false
 
 // This looks 'realPath' up internally, and if present, generates a URI for that resource.
 // This is useful for frameworks like Mojo, which normally require server-side storage mechanics.
-function __os_allocateResource(realPath, fallback)
+function __os_allocateResource(realPath, fallback) //fallback=false
 {
 	var f = __os_storageLookup(realPath);
 	
