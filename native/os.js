@@ -16,6 +16,8 @@ var FILETYPE_DIR = 2;
 var FILETIME_NONE = 0; // -1
 
 // Internal:
+var __os_version_symbol = "||__os_version||";
+
 var __os_filesystem_type_symbol = "||__os_filesystem_type||";
 var __os_filesystem_time_map_symbol = "||__os_filesystem_time_map||";
 var __os_filesystem_time_map_toggle_symbol = "||__os_filesystem_time_map_toggle||"
@@ -40,6 +42,9 @@ var FILESYSTEM_ENCODING_ARRAYBUFFER = 2;
 var FILESYSTEM_ENCODING_DEFAULT = FILESYSTEM_ENCODING_STRING; // FILESYSTEM_ENCODING_ARRAYBUFFER // FILESYSTEM_ENCODING_BASE64;
 
 // Global variable(s):
+
+// This is used when '__os_getVersion' assigns the internal version. (When one isn't found)
+var __os_default_version = 1;
 
 // This is used to supply arguments to the application.
 var __os_appargs = [];
@@ -89,6 +94,41 @@ var __os_safe = false; // true;
 var __os_resource_generator = window.URL || window.webkitURL;
 
 // Functions:
+
+// This retrieves the internal version of this module.
+// If a version number wasn't supplied, one will be assigned.
+// To disable such behavior, set 'force_stop_assignment' to 'true'.
+function __os_getVersion(force_stop_assignment) //force_stop_assignment=false
+{
+	if (__os_storage.hasOwnProperty(__os_version_symbol))
+	{
+		return Number(__os_storage[__os_version_symbol]);
+	}
+	
+	if (!force_stop_assignment)
+	{
+		__os_setVersion(__os_default_version, false);
+		
+		return __os_default_version;
+	}
+	
+	return __os_default_version; // OS_VERSION_NOT_FOUND;
+}
+
+// Please do not call this function. It will be handled automatically by '__os_getVersion'.
+// The return value of this function indicates the success of the operation.
+function __os_setVersion(versionNumber, safety) //safety=false
+{
+	if (safety && __os_storage.hasOwnProperty(__os_version_symbol))
+	{
+		return false;
+	}
+	
+	__os_storage[__os_version_symbol] = versionNumber;
+	
+	// Return the default response.
+	return true;
+}
 
 // Conversion and storage semantics:
 
@@ -1062,7 +1102,7 @@ function __os_removeStorageEntry(storage, realPath, isDir, recursive, value) // 
 }
 
 // This removes all elements in 'storage' that start with 'prefix'. (Use at your own risk)
-function __os_eliminateDirByPrefix(storage, prefix)
+function __os_eliminateByPrefix(storage, prefix)
 {
 	for (var e in storage)
 	{
