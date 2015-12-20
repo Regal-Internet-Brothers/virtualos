@@ -1044,7 +1044,6 @@ function __os_removeStorageEntry(storage, realPath, isDir, recursive, value) // 
 			if (e.indexOf(realPath) == 0)
 			{
 				var lastSlash = e.lastIndexOf("/");
-				var ePath = e.substring(0, lastSlash);
 				
 				// Remove only what we need to: If we're doing this
 				// recursively, delete everything, but if not,
