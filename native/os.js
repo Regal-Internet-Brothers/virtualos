@@ -1061,6 +1061,23 @@ function __os_removeStorageEntry(storage, realPath, isDir, recursive, value) // 
 	return response;
 }
 
+// This removes all elements in 'storage' that start with 'prefix'. (Use at your own risk)
+function __os_eliminateDirByPrefix(storage, prefix)
+{
+	for (var e in storage)
+	{
+		if (e.indexOf(prefix) == 0)
+		{
+			var lastSlash = e.lastIndexOf("/");
+			
+			if (lastSlash < prefix.length)
+			{
+				__os_removeStorageEntry(storage, e, undefined, true);
+			}
+		}
+	}
+}
+
 // This attempts to produce a valid MIME-type for 'path'.
 function __os_get_MIMEType(realPath, fallback) //fallback=false
 {
