@@ -680,7 +680,7 @@ function __os_download_raw(url, lastTime, out_ext) // lastTime=null
 		//xhr.overrideMimeType("application/octet-stream");
 		xhr.overrideMimeType("text/plain ; charset=x-user-defined");
 		
-		print("lastTime: " + lastTime);
+		//print("lastTime: " + lastTime);
 		
 		if (lastTime !== undefined && lastTime != FILETIME_NONE)
 		{
