@@ -16,12 +16,18 @@ var FILETYPE_DIR = 2;
 var FILETIME_NONE = 0; // -1
 
 // Internal:
+
+// All symbols must start with this prefix.
+var __os_symbol_prefix = "||";
+
+// Accessor symbols:
 var __os_version_symbol = "||__os_version||";
 
 var __os_filesystem_type_symbol = "||__os_filesystem_type||";
 var __os_filesystem_time_map_symbol = "||__os_filesystem_time_map||";
 var __os_filesystem_time_map_toggle_symbol = "||__os_filesystem_time_map_toggle||"
 
+// Content symbols:
 var __os_directory_symbol = "||DIR||"; // "//"
 var __os_emptyFile_symbol = "||EMPTY||"; // "/|E"
 
@@ -44,7 +50,7 @@ var FILESYSTEM_ENCODING_DEFAULT = FILESYSTEM_ENCODING_STRING; // FILESYSTEM_ENCO
 // Global variable(s):
 
 // This is used when '__os_getVersion' assigns the internal version. (When one isn't found)
-var __os_default_version = 1;
+var __os_default_version = 3;
 
 // This is used to supply arguments to the application.
 var __os_appargs = [];
@@ -88,12 +94,14 @@ var __os_badcache = false;
 
 // This is used internally when an unsafe operation is applied.
 // If this is 'false', fallback behavior may be used implicitly.
-var __os_safe = false; // true;
+var __os_safe = true; // false;
 
 // This is used to generate handles to resources.
 var __os_resource_generator = window.URL || window.webkitURL;
 
 // Functions:
+
+// Meta:
 
 // This retrieves the internal version of this module.
 // If a version number wasn't supplied, one will be assigned.
@@ -128,6 +136,21 @@ function __os_setVersion(versionNumber, safety) //safety=false
 	
 	// Return the default response.
 	return true;
+}
+
+// If '__os_should_log_remote_file_responses' is true,
+// this will mark 'url' with 'value' using '__os_remote_file_responses'.
+function __os_mark_remote_file(url, value)
+{
+	if (__os_should_log_remote_file_responses)
+	{
+		__os_remote_file_responses[url] = value;
+		
+		return true;
+	}
+	
+	// Return the default response.
+	return false;
 }
 
 // Conversion and storage semantics:
@@ -237,7 +260,7 @@ function __os_load_filesystem_time_map(keepOnFailure)
 	if (entry != null)
 	{
 		__os_filesystem_time_map = JSON.parse(entry);
-		__os_set_log_filesystem_times(true);
+		__os_set_should_log_filesystem_times(true);
 		
 		return true;
 	}
@@ -253,7 +276,7 @@ function __os_load_filesystem_time_map(keepOnFailure)
 // This saves the file-system's file-time data to '__os_storage'.
 function __os_save_filesystem_time_map(clearOnSave) // clearOnSave=false
 {
-	if (__os_filesystem_time_map.length > 0)
+	if (Object.keys(__os_filesystem_time_map).length > 0)
 	{
 		__os_storage[__os_filesystem_time_map_symbol] = JSON.stringify(__os_filesystem_time_map);
 		
@@ -577,8 +600,15 @@ function __os_get_FileTime(realPath)
 }
 
 // This sets the file-time of 'realPath' using 'time'.
+// If the operation could not be performed, and/or
+// 'time' is 'FILETIME_NONE', this will return 'false'.
 function __os_set_FileTime(realPath, time)
 {
+	if (time == FILETIME_NONE)
+	{
+		return false;
+	}
+	
 	/*
 		if (!fileTimesEnabled)
 		{
@@ -680,11 +710,19 @@ function __os_download_raw(url, lastTime, out_ext) // lastTime=null
 		//xhr.overrideMimeType("application/octet-stream");
 		xhr.overrideMimeType("text/plain ; charset=x-user-defined");
 		
-		//print("lastTime: " + lastTime);
-		
-		if (lastTime !== undefined && lastTime != FILETIME_NONE)
+		if (lastTime != null && lastTime != FILETIME_NONE)
 		{
-			xhr.setRequestHeader("If-Modified-Since", new Date(lastTime));
+			if (isNaN())
+			{
+				xhr.setRequestHeader("If-None-Match", lastTime);
+			}
+			else
+			{
+				var date = new Date(lastTime * 1000); // <-- May or may not actually be needed.
+				var converted_date = date.toString();
+				
+				xhr.setRequestHeader("If-Modified-Since", converted_date);
+			}
 		}
 		else
 		{
@@ -702,28 +740,45 @@ function __os_download_raw(url, lastTime, out_ext) // lastTime=null
 		{
 			var lastModified = xhr.getResponseHeader("Last-Modified");
 			
-			var test = xhr.getAllResponseHeaders();
-			
 			if (lastModified)
 			{
 				out_ext[0] = Date.parse(lastModified); // out_ext.push(..);
 			}
 			else
 			{
-				out_ext[0] = FILETIME_NONE; // out_ext.push(..);
+				var eTag = xhr.getResponseHeader("ETag");
+				
+				if (eTag)
+				{
+					var value = eTag.replace(/['"']+/g, "");
+					
+					if (isNaN(value))
+					{
+						out_ext[0] = value;
+					}
+					else
+					{
+						var ivalue = Number(value);
+						
+						out_ext[0] = (ivalue);
+					}
+				}
+				else
+				{
+					out_ext[0] = FILETIME_NONE; // out_ext.push(..);
+				}
 			}
 		}
 		
 		switch (xhr.status)
 		{
 			case 304:
-				break;
+				__os_mark_remote_file(url, true);
+				
+				return null;
 			case 0:
 			case 200:
-				if (__os_should_log_remote_file_responses)
-				{
-					__os_remote_file_responses[url] = true;
-				}
+				__os_mark_remote_file(url, true);
 				
 				return xhr.responseText; break; // xhr.response;
 		}
@@ -733,9 +788,9 @@ function __os_download_raw(url, lastTime, out_ext) // lastTime=null
 		// Nothing so far.
 	}
 	
-	if (!__os_badcache && __os_should_log_remote_file_responses)
+	if (!__os_badcache)
 	{
-		__os_remote_file_responses[url] = false;
+		__os_mark_remote_file(url, false);
 	}
 }
 
@@ -746,15 +801,9 @@ function __os_downloadFileUsingRep(storage, url, rep, isEmpty) // isEmpty=false
 	
 	if
 	(
-		(isEmpty)
+		(((isEmpty || repValue == __os_emptyFile_symbol) || repValue == null) && __os_should_log_remote_file_responses && !__os_remote_file_responses.hasOwnProperty(url))
 		||
 		(__os_badcache)
-		||
-		(repValue == __os_emptyFile_symbol)
-		||
-		(__os_should_log_remote_file_responses && !__os_remote_file_responses.hasOwnProperty(url))
-		||
-		(repValue == null) // === undefined
 	)
 	{
 		var fileTimesEnabled = __os_get_should_log_filesystem_times();
@@ -969,15 +1018,17 @@ function __os_createFileEntryWith(storage, rep, data, force) //force=false
 	if (force || (!__os_safe || currentEntry == null || currentEntry == __os_emptyFile_symbol || currentEntry == __os_nativeEmpty()))
 	{
 		storage[rep] = data;
+		
+		return true;
 	}
 	
 	// Return the default response.
-	return true;
+	return false;
 }
 
-function __os_createFileEntry(rep, data, isDir)
+function __os_createFileEntry(rep, data, isDir, force)
 {
-	return __os_createFileEntryWith(__os_storage, rep, data);
+	return __os_createFileEntryWith(__os_storage, rep, data, force);
 }
 
 // This creates a "file link". "File links" are basically 'to-be-loaded'
