@@ -50,7 +50,7 @@ var FILESYSTEM_ENCODING_DEFAULT = FILESYSTEM_ENCODING_STRING; // FILESYSTEM_ENCO
 // Global variable(s):
 
 // This is used when '__os_getVersion' assigns the internal version. (When one isn't found)
-var __os_default_version = 3;
+var __os_default_version = 4;
 
 // This is used to supply arguments to the application.
 var __os_appargs = [];
@@ -1500,9 +1500,9 @@ function LoadString(path)
 	return "";
 }
 
-function SaveString(str, path)
+function SaveString(str, path, safe) //safe=false
 {
-	return __os_createFileEntry(RealPath(path), __os_String_To_Native(str));
+	return __os_createFileEntry(RealPath(path), __os_String_To_Native(str), false, !safe);
 }
 
 // This loads all files and folders in 'realPath' specifically.
