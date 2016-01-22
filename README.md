@@ -6,7 +6,7 @@ This is an experimental module for the [Monkey programming language](https://git
 ## Purpose and Current Usage
 This is still an experimental product. Some behavior is untested, and may perform differently from BRL's implementation. Use this module at your own risk.
 
-This was created in tandem with the ['WebCC' project](http://regal-internet-brothers.github.io/webcc), an on-going port of Monkey's compiler to web browsers. The project is primarily powered by this module, so therefore, any changes made to this module need to behave with that compiler.
+This was created in tandem with the ['WebCC' project](https://github.com/Regal-Internet-Brothers/webcc-monkey#webcc-monkey), an on-going port of Monkey's compiler to web browsers. The project is primarily powered by this module, so therefore, any changes made to this module need to behave with that compiler.
 
 Because this needs to be used with 'WebCC', dependencies to unofficial modules, such as 'regal', will remain optional.
 
