@@ -19,7 +19,9 @@ Import config
 		#End
 	#End
 #Else
-	'Import "native/process.js"
+	#If Not VIRTUALOS_TRADITIONAL
+		Import "native/process.js"
+	#End
 #End
 
 #If VIRTUALOS_IMPLEMENTED

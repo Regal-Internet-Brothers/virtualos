@@ -4,17 +4,18 @@ Public
 
 ' Preprocessor related:
 #If LANG = "js"
-	#VIRTUALOS_DEMO_SAVEANDLOAD_JS_ASK = True
+	#VIRTUALOS_DEMO_SAVEANDLOAD_JS_EXTS = True
 #End
 
 ' Imports:
-Import regal.virtualos
+Import regal.virtualos.os
 
 ' External bindings:
 Extern
 
-#If VIRTUALOS_DEMO_SAVEANDLOAD_JS_ASK
+#If VIRTUALOS_DEMO_SAVEANDLOAD_JS_EXTS
 	Function Confirm:Bool(Message:String)="confirm"
+	Function Alert:Void(Message:String)="alert"
 #End
 
 Public
@@ -22,7 +23,7 @@ Public
 ' Functions:
 Function Main:Int()
 	' Constant variable(s):
-	Const MessagePath:= "internal/Thing.txt"
+	Const MessagePath:= "Thing.txt"
 	
 	' Local variable(s):
 	Local Message:= "This is a test."
@@ -34,11 +35,19 @@ Function Main:Int()
 	If (LoadedVersion.Length = 0) Then
 		Print("Loading failed; creating file entry.")
 		
-		Print("Saving '" + Message + "' to ~q" + MessagePath + "~q.")
+		Print("Saving '" + Message + "' to ~q" + MessagePath + "~q...")
 		
-		SaveString(Message, MessagePath)
+		Local SaveResponse:= SaveString(Message, MessagePath)
 		
-		Print("Done.")
+		Print("Response from 'SaveString': " + SaveResponse)
+		
+		If (SaveResponse = 0) Then
+			Print("Done.")
+			
+			Alert("File entry created.")
+		Else
+			Print("Unable to create file entry.")
+		Endif
 	Else
 		Print("Done; resulting message:")
 		Print("'" + Message + "'")
@@ -60,8 +69,14 @@ Function Main:Int()
 	Return 0
 End
 
-#If Not VIRTUALOS_DEMO_SAVEANDLOAD_JS_ASK
+#If Not VIRTUALOS_DEMO_SAVEANDLOAD_JS_EXTS
 	Function Confirm:Bool(Message:String)
 		Return True ' False
+	End
+	
+	Function Alert:Void(Message:String)
+		Print("{ALERT}: " + Message)
+		
+		Return
 	End
 #End

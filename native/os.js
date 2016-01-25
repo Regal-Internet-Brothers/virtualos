@@ -1502,7 +1502,13 @@ function LoadString(path)
 
 function SaveString(str, path, safe) //safe=false
 {
-	return __os_createFileEntry(RealPath(path), __os_String_To_Native(str), false, !safe);
+	if (!__os_createFileEntry(RealPath(path), __os_String_To_Native(str), false, !safe))
+	{
+		return -1;
+	}
+	
+	// Return the default response.
+	return 0;
 }
 
 // This loads all files and folders in 'realPath' specifically.

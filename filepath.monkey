@@ -8,7 +8,7 @@ Public
 ' Imports:
 Import config
 
-#If Not VIRTUALOS_IMPLEMENTED
+#If ((Not VIRTUALOS_IMPLEMENTED) Or VIRTUALOS_REAL_FILEPATH)
 	#If VIRTUALOS_REAL
 		#If Not VIRTUALOS_REAL_USE_BRL
 			Import os
@@ -17,7 +17,9 @@ Import config
 		#End
 	#End
 #Else
-	'Import "native/filepath.js"
+	#If Not VIRTUALOS_TRADITIONAL
+		'Import "native/filepath.js"
+	#End
 #End
 
 #If VIRTUALOS_IMPLEMENTED

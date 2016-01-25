@@ -19,7 +19,9 @@ Import config
 		#End
 	#End
 #Else
-	'Import "native/filesystem.js"
+	#If Not VIRTUALOS_TRADITIONAL
+		Import "native/filesystem.js"
+	#ENd
 #End
 
 ' Imports (Private):
