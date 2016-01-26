@@ -23,24 +23,49 @@ Public
 
 #VIRTUALOS_LOCAL_ONLY = True
 
-' JavaScript-specific configuration:
+' Check the build environemnt:
 #If VIRTUALOS_JS_TARGET
+	' Set the implementation-flag to 'True'.
 	#VIRTUALOS_IMPLEMENTED = True
 	
+	' JavaScript-specific configuration:
+	
 	' Environment:
-	#VIRTUALOS_DEFAULT_FILE = True ' False ' True
-	#VIRTUALOS_TRADITIONAL = True ' False
+	
+	' For JS, we need the default file for integral code paths.
+	#VIRTUALOS_DEFAULT_FILE = True
+	
+	' In addition, we are modular, so we need to stay "non-traditional".
+	#VIRTUALOS_TRADITIONAL = False
 	
 	' Implementation details:
+	
+	' This states that environment variables are mapped from Monkey.
 	#VIRTUALOS_MAP_ENV = True
 	'#VIRTUALOS_MAP_FILETIMES = True
 	
 	' Extensions:
+	
+	' This enables "download extensions".
 	#VIRTUALOS_EXTENSION_DL = True
+	
+	' This enables various virtual file-system extensions.
 	#VIRTUALOS_EXTENSION_VFILE = True
+	
+	' This is an extension related to "VFILE", essentially,
+	' it allows you to check for available storage types.
+	#VIRTUALOS_EXTENSION_STORAGE_CAPABILITIES = True
+	
+	' This enables extensions that give Monkey programmers the
+	' ability to convert from "real paths" to "remote paths".
 	#VIRTUALOS_EXTENSION_REMOTEPATH = True
+	
+	' This extension allows the native implementation
+	' to handle recursive behavior as it sees fit.
 	#VIRTUALOS_EXTENSION_NATIVE_RECURSION = True
 	
+	' This extension allows the use of unmanaged array passage.
+	' (Unsafe; required for some applications)
 	#VIRTUALOS_EXTENSION_UNSAFE_LOADARRAY = True
 	
 	#If CONFIG = "debug"
@@ -54,6 +79,8 @@ Public
 #Else
 	' This is a 'good-faith' situation.
 	' In other words, this may or may not work:
+	
+	' Set the implementation-flag to 'True'.
 	#VIRTUALOS_IMPLEMENTED = True
 	
 	#VIRTUALOS_DEFAULT_FILE = True

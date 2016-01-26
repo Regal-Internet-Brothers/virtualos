@@ -6,7 +6,7 @@ Public
 ' Nothing so far.
 
 ' Imports:
-Import config
+Import core ' "meta"
 
 #If Not VIRTUALOS_IMPLEMENTED
 	#If VIRTUALOS_REAL

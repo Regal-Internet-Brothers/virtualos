@@ -6,7 +6,7 @@ Public
 ' Nothing so far.
 
 ' Imports:
-Import config
+Import config ' core
 
 #If ((Not VIRTUALOS_IMPLEMENTED) Or VIRTUALOS_REAL_FILEPATH)
 	#If VIRTUALOS_REAL

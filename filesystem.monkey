@@ -5,9 +5,17 @@ Public
 ' Preprocessor related:
 ' Nothing so far.
 
-' Imports:
-Import config
+' Imports (Internal):
+Import core
 
+' Implementation dependencies:
+Private
+
+Import process
+
+Public
+
+' Imports (Other):
 #If Not VIRTUALOS_IMPLEMENTED
 	#If VIRTUALOS_REAL
 		#If Not VIRTUALOS_REAL_USE_BRL
@@ -21,7 +29,7 @@ Import config
 #Else
 	#If Not VIRTUALOS_TRADITIONAL
 		Import "native/filesystem.js"
-	#ENd
+	#End
 #End
 
 ' Imports (Private):
@@ -70,38 +78,6 @@ Public
 	' External bindings:
 	Extern
 	
-	' Global variable(s) (External) (Private):
-	Extern Private
-	
-	' If you are supporting these extensions, please provide '__OS_Storage'.
-	#If VIRTUALOS_EXTENSION_VFILE
-		#If VIRTUALOS_JS_TARGET
-			Global __OS_Storage:StorageHandle="__os_storage"
-		#End
-	#End
-	
-	Extern
-	
-	' Classes (External) (Private):
-	Extern Private
-	
-	' API:
-	' Nothing so far.
-	
-	' Extensions:
-	#If VIRTUALOS_EXTENSION_VFILE
-		#If VIRTUALOS_JS_TARGET
-			Class StorageHandle = "Storage" ' Extends DOMObject
-				' Methods:
-				' Nothing so far.
-			End
-		#Else
-			#Error "Unable to resolve type: 'StorageHandle'"
-		#End
-	#End
-	
-	Extern
-	
 	' Functions (External):
 	
 	' API:
@@ -129,10 +105,6 @@ Public
 	#End
 	
 	' Extensions:
-	#If VIRTUALOS_EXTENSION_REMOTEPATH
-		Function __OS_ToRemotePath:String(RealPath:String)="__os_toRemotePath"
-	#End
-	
 	#If VIRTUALOS_EXTENSION_CUSTOM_FILETIMES
 		Function __OS_SetFileTime:Void(RealPath:String, Time:Int)="__os_set_FileTime"
 		Function __OS_RemoveFileTime:Void(RealPath:String)="__os_remove_FileTime"
@@ -149,7 +121,6 @@ Public
 	#End
 	
 	#If VIRTUALOS_EXTENSION_VFILE
-		Function __OS_StorageSupported:Bool()="__os_storageSupported"
 		Function __OS_CreateFileLink:Void(Rep:String)="__os_createFileLink"
 	#End
 	

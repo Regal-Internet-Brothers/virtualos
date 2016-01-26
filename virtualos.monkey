@@ -6,13 +6,7 @@ Public
 ' Nothing so far.
 
 ' Imports:
-Import config
-
-#If VIRTUALOS_IMPLEMENTED
-	#If VIRTUALOS_DEFAULT_FILE
-		Import "native/os.${LANG}"
-	#End
-#End
+Import core
 
 ' When 'VIRTUALOS_IMPLEMENTED' is set to 'False',
 ' these modules may still act as import-redirects:

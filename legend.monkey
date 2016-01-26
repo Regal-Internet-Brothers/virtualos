@@ -5,9 +5,16 @@ Public
 ' Preprocessor related:
 ' Nothing so far.
 
-' Imports:
-Import config
+' Imports (Internal):
+Import core
 
+Private
+
+Import filesystem
+
+Public
+
+' Imports (Other):
 #If Not VIRTUALOS_IMPLEMENTED
 	#If VIRTUALOS_REAL
 		#If Not VIRTUALOS_REAL_USE_BRL
@@ -28,6 +35,7 @@ Import config
 	
 	' API:
 	Function HostOS:String()
+	
 	Function LoadString:String(Path:String)
 	Function SaveString:Int(Str:String, Path:String)
 	
@@ -36,7 +44,7 @@ Import config
 		' This provides an array of integers in a native format, which is ideally used like a normal array.
 		' The resulting array is symbolic, and may or may not behave appropriately.
 		' If you are unsure, use 'LoadString'. (Binary data may still need to use this extension)
-		Function __OS_Unsafe__LoadArray:Int[](RealPath:String)="__os_LoadArray"
+		Function __OS_Unsafe__LoadArray:Int[](RealPath:String)="__os_LoadArray" ' UNSAFE
 	#End
 	
 	Public
