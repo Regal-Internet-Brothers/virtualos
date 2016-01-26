@@ -5,7 +5,7 @@
 var __os_appargs = [];
 
 // This is used to keep track of the current directory.
-var  = "";
+var __os_currentdir = "";
 
 // Functions:
 
