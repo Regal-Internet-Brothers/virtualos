@@ -7,7 +7,7 @@ This is an experimental module for the [Monkey programming language](https://git
 * Full API compatibility with the official '[os](https://regal-internet-brothers.github.io/monkey/docs/Modules_os.html)' module.
 * Compatibility with the '[brl](https://regal-internet-brothers.github.io/monkey/docs/Modules_brl.html)' module's '[os](https://regal-internet-brothers.github.io/monkey/docs/Modules_os.html)' equivalents.
 * Support for multiple backends. (C++, JavaScript, etc; several configuration options)
-* Usable as a 1-1 replacement for '[os](https://regal-internet-brothers.github.io/monkey/docs/Modules_os.html)' when provided with Monkey's official "[os.cpp](https://github.com/blitz-research/monkey/blob/develop/modules/os/native/os.cpp)" file.
+* Usable as a 1:1 replacement for '[os](https://regal-internet-brothers.github.io/monkey/docs/Modules_os.html)' when provided with Monkey's official "[os.cpp](https://github.com/blitz-research/monkey/blob/develop/modules/os/native/os.cpp)" file.
 * Fully working file-system based on HTML5's file-storage and ECMA Script's object mechanics.
 * Stable file-path semantics. (Used heavily in [WebCC](https://github.com/Regal-Internet-Brothers/webcc-monkey#webcc-monkey))
 * Configurable behavior for '[Execute](https://regal-internet-brothers.github.io/monkey/docs/Modules_brl.process.html#Execute)'. (User-defined; native code)
