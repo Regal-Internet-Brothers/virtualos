@@ -4,11 +4,11 @@ Public
 
 #Rem
 	DESCRIPTION:
-		This is an 'os' unit test, meant to showcase saving and
-		loading a file, using the active version of 'os'.
+		This is an 'os' unit-test, meant to showcase saving
+		and loading a file, using the active version of 'os'.
 		
-		Code control-flow may or may not be self-contained,
-		but overall behavior should be consistent across boundaries.
+		Code control-flow may or may not be self-contained, but
+		overall behavior should be consistent across boundaries.
 #End
 
 ' Preprocessor related:

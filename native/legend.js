@@ -34,10 +34,36 @@ function SaveString(str, path, safe) //safe=false
 
 // Extensions:
 
+// This initializes 'buf' ('BBDataBuffer') using the file-data found at 'realPath'.
+// If this operation succeeded, the return-value will be the output 'BBDataBuffer'.
+function __os_LoadBufferTo(realPath, buf)
+{
+	if (buf == null)
+	{
+		return null;
+	}
+	
+	var rawData = __os_Native_To_ArrayBuffer(__os_LoadNative(realPath));
+	
+	if (rawData == null)
+	{
+		return null;
+	}
+	
+	buf._Init(rawData);
+	
+	return buf;
+}
+
 // This provides an array of (Signed) 8-bit integers ('Int8Array').
 function __os_LoadArray(realPath)
 {
 	var rawData = __os_Native_To_ArrayBuffer(__os_LoadNative(realPath));
+	
+	if (rawData == null)
+	{
+		return null;
+	}
 	
 	return new Int8Array(rawData);
 }

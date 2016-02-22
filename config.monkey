@@ -68,6 +68,9 @@ Public
 	' (Unsafe; required for some applications)
 	#VIRTUALOS_EXTENSION_UNSAFE_LOADARRAY = True
 	
+	#VIRTUALOS_EXTENSION_LOADBUFFER = True
+	#VIRTUALOS_EXTENSION_LOADBUFFER_SAFE = True
+	
 	#If CONFIG = "debug"
 		'#VIRTUALOS_DEBUG = True
 	#End

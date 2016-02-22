@@ -66,6 +66,12 @@ Public
 	
 	Const FILETIME_UNAVAILABLE:= 0
 	
+	'#If VIRTUALOS_EXTENSION_ENCODING_INFO
+	Const FILESYSTEM_ENCODING_STRING:= 0
+	Const FILESYSTEM_ENCODING_BASE64:= 1
+	Const FILESYSTEM_ENCODING_ARRAYBUFFER:= 2
+	'#End
+	
 	' Constant variable(s) (Private):
 	Private
 	
@@ -105,6 +111,10 @@ Public
 	#End
 	
 	' Extensions:
+	#If VIRTUALOS_EXTENSION_ENCODING_INFO
+		Function __OS_GetFileSystemEncoding:Int()="__os_getFileSystemEncoding"
+	#End
+	
 	#If VIRTUALOS_EXTENSION_CUSTOM_FILETIMES
 		Function __OS_SetFileTime:Void(RealPath:String, Time:Int)="__os_set_FileTime"
 		Function __OS_RemoveFileTime:Void(RealPath:String)="__os_remove_FileTime"

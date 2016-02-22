@@ -10,6 +10,10 @@ Import core
 
 Private
 
+#If VIRTUALOS_EXTENSION_LOADBUFFER
+	Import brl.databuffer
+#End
+
 Import filesystem
 
 Public
@@ -47,5 +51,44 @@ Public
 		Function __OS_Unsafe__LoadArray:Int[](RealPath:String)="__os_LoadArray" ' UNSAFE
 	#End
 	
+	#If VIRTUALOS_EXTENSION_LOADBUFFER
+		' This natively binds the file-data of 'RealPath' to 'Buffer'.
+		' This data may or may not represent the native entry.
+		' Mutation of this buffer will result in undefined behavior.
+		Function __OS_LoadBufferTo:BBDataBuffer(RealPath:String, Buffer:BBDataBuffer)="__os_LoadBufferTo"
+	#End
+	
 	Public
+	
+	' Functions (Public):
+	#If VIRTUALOS_EXTENSION_LOADBUFFER
+		' This allocates a 'DataBuffer' using the file-data at 'RealPath'.
+		' If the file does not exist, this will return 'Null'.
+		' The output-buffer of this method should not be modified
+		' unless 'VIRTUALOS_EXTENSION_LOADBUFFER_SAFE' is defined.
+		Function __OS_LoadBuffer:DataBuffer(RealPath:String)
+			Local B:= New DataBuffer()
+			
+			If (__OS_LoadBufferTo(RealPath, B) <> B) Then
+				Return Null
+			Endif
+			
+			' Apply safety behavior:
+			#If VIRTUALOS_EXTENSION_LOADBUFFER_SAFE
+				#If VIRTUALOS_EXTENSION_ENCODING_INFO
+					If (__OS_GetFileSystemEncoding() <> FILESYSTEM_ENCODING_ARRAYBUFFER) Then
+						Return B
+					Endif
+				#End
+				
+				Local Out:= New DataBuffer(B.Length)
+				
+				B.CopyBytes(0, Out, 0, Out.Length) ' B.Length
+				
+				Return Out
+			#End
+			
+			Return B
+		End
+	#End
 #End
