@@ -58,6 +58,12 @@ Public
 		Function __OS_LoadBufferTo:BBDataBuffer(RealPath:String, Buffer:BBDataBuffer)="__os_LoadBufferTo"
 	#End
 	
+	#If VIRTUALOS_EXTENSION_SAVEBUFFER
+		' This takes the contents of 'Buffer' and creates a file-system entry using 'RealPath'.
+		' This will only override the contents of an existing file-entry if 'Override' is enabled.
+		Function __OS_SaveBuffer:Bool(RealPath:String, Buffer:BBDataBuffer, Override:Bool=True)="__os_SaveBuffer"
+	#End
+	
 	Public
 	
 	' Functions (Public):
