@@ -24,7 +24,7 @@ var __os_filesystem_time_map_toggle_symbol = "||__os_filesystem_time_map_toggle|
 
 // Content symbols:
 var __os_directory_symbol = "||DIR||"; // "//"
-var __os_remoteFile_symbol = "||EMPTY||"; // "/|E"
+var __os_remoteFile_symbol = "||REMOTE||"; // "/|E"
 
 // File-system types:
 var FILESYSTEM_ENCODING_STRING = 0;

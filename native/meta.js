@@ -7,7 +7,7 @@ var __os_symbol_prefix = "||";
 // Global variable(s):
 
 // This is used when '__os_getVersion' assigns the internal version. (When one isn't found)
-var __os_default_version = 4;
+var __os_default_version = 5;
 
 // Internal:
 
