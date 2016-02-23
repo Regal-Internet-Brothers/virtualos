@@ -77,12 +77,18 @@ Public
 		
 		Method EstablishStream:Void(Path:String, Mode:String)
 			Select Mode
-				Case "r", "u"
-					ReadFileData(RealPath(Path), True)
-				Case "a"
-					ReadFileData(RealPath(Path), False)
-				Case "w"
-					CreateFile(Path)
+				#If VIRTUALOS_FILESTREAM_CAN_LOAD
+					Case "r", "u"
+						ReadFileData(RealPath(Path), True)
+					Case "a"
+						ReadFileData(RealPath(Path), False)
+				#End
+				
+				#If VIRTUALOS_FILESTREAM_CAN_SAVE
+					Case "w"
+						CreateFile(Path)
+				#End
+				
 				Default
 					Throw New FileStreamOpenException("Invalid file-mode detected.", Path, Self)
 			End Select
@@ -97,8 +103,12 @@ Public
 		
 		' Methods (Public):
 		Method Close:Void()
-			' Push data to the file-system.
-			WriteFileData(RealPath(Self.Path))
+			#If VIRTUALOS_FILESTREAM_CAN_SAVE
+				If (IsOutputStream) Then
+					' Push data to the file-system.
+					WriteFileData(RealPath(Self.Path))
+				Endif
+			#End
 			
 			' Close the stream properly.
 			Super.Close()
@@ -109,40 +119,61 @@ Public
 		' Methods (Protected):
 		Protected
 		
-		Method ReadFileData:DataBuffer(RealPath:String, ResetPosition:Bool=True)
-			Local Contents:= __OS_LoadBuffer(RealPath)
-			
-			If (Contents = Null) Then
-				Return Null
-			Endif
-			
-			Local Position:= Self.Position
-			
-			WriteAll(Contents, 0, Contents.Length)
-			
-			If (ResetPosition) Then
-				Seek(Position)
-			Endif
-			
-			Return Contents
-		End
+		#If VIRTUALOS_FILESTREAM_CAN_LOAD
+			Method ReadFileData:DataBuffer(RealPath:String, ResetPosition:Bool=True)
+				Local Contents:= __OS_LoadBuffer(RealPath)
+				
+				If (Contents = Null) Then
+					Return Null
+				Endif
+				
+				Local Position:= Self.Position
+				
+				WriteAll(Contents, 0, Contents.Length)
+				
+				If (ResetPosition) Then
+					Seek(Position)
+				Endif
+				
+				Return Contents
+			End
+		#End
 		
-		Method WriteFileData:Bool(RealPath:String)
-			Local Output:= New DataBuffer(Self.Length)
-			
-			Self.Data.CopyBytes(Offset, Output, 0, Length)
-			
-			If (Not __OS_SaveBuffer(RealPath, Output)) Then
-				Return False
-			Endif
-			
-			'Output.Discard()
-			
-			' Return the default response.
-			Return True
-		End
+		#If VIRTUALOS_FILESTREAM_CAN_SAVE
+			Method WriteFileData:Bool(RealPath:String)
+				Local Output:= New DataBuffer(Self.Length)
+				
+				Self.Data.CopyBytes(Offset, Output, 0, Length)
+				
+				If (Not __OS_SaveBuffer(RealPath, Output)) Then
+					Return False
+				Endif
+				
+				'Output.Discard()
+				
+				' Return the default response.
+				Return True
+			End
+		#End
 		
 		Public
+		
+		' Properties:
+		Method IsInputStream:Bool() Property
+			#If VIRTUALOS_FILESTREAM_CAN_LOAD
+				Return (Mode = "r")
+			#Else
+				Return False
+			#End
+		End
+		
+		Method IsOutputStream:Bool() Property
+			#If VIRTUALOS_FILESTREAM_CAN_SAVE
+				Return (Mode = "w" Or Mode = "a" Or Mode = "u") ' (Not IsInputStream)
+			#Else
+				Return False
+			#End
+		End
 		
 		' Fields (Protected):
 		Protected
