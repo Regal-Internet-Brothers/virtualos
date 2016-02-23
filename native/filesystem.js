@@ -24,7 +24,7 @@ var __os_filesystem_time_map_toggle_symbol = "||__os_filesystem_time_map_toggle|
 
 // Content symbols:
 var __os_directory_symbol = "||DIR||"; // "//"
-var __os_emptyFile_symbol = "||EMPTY||"; // "/|E"
+var __os_remoteFile_symbol = "||EMPTY||"; // "/|E"
 
 // File-system types:
 var FILESYSTEM_ENCODING_STRING = 0;
@@ -539,7 +539,7 @@ function __os_downloadFileUsingRep(storage, url, rep, isEmpty) // isEmpty=false
 	
 	if
 	(
-		(((isEmpty || repValue == __os_emptyFile_symbol) || repValue == null) && __os_should_log_remote_file_responses && !__os_remote_file_responses.hasOwnProperty(url))
+		(((isEmpty || repValue == __os_remoteFile_symbol) || repValue == null) && __os_should_log_remote_file_responses && !__os_remote_file_responses.hasOwnProperty(url))
 		||
 		(__os_badcache)
 	)
@@ -706,7 +706,7 @@ function __os_createFileEntryWith(storage, rep, data, force) //force=false
 {
 	var currentEntry = storage[rep];
 	
-	if (force || (!__os_safe || currentEntry == null || currentEntry == __os_emptyFile_symbol || currentEntry == __os_nativeEmpty()))
+	if (force || (!__os_safe || currentEntry == null || currentEntry == __os_remoteFile_symbol || currentEntry == __os_nativeEmpty()))
 	{
 		storage[rep] = data;
 		
@@ -727,7 +727,7 @@ function __os_createFileEntry(rep, data, isDir, force)
 // This command is abstract from the underlying storage system.
 function __os_createFileLink(rep)
 {
-	return __os_createFileEntry(rep, __os_emptyFile_symbol, false);
+	return __os_createFileEntry(rep, __os_remoteFile_symbol, false);
 }
 
 // This gets a file using 'realPath' from a remote host.
@@ -736,7 +736,7 @@ function __os_getFile(realPath, isEmpty)
 {
 	var f = __os_storageLookup(realPath);
 	
-	if (f == null || isEmpty != null || (isEmpty = (f == __os_emptyFile_symbol))) // Set 'isEmpty', and check it.
+	if (f == null || isEmpty != null || (isEmpty = (f == __os_remoteFile_symbol))) // Set 'isEmpty', and check it.
 	{
 		return __os_downloadFile(__os_storage, realPath, isEmpty);
 	}
@@ -1093,7 +1093,7 @@ function FileType(path, skip_request) //skip_request=false
 	if (!skip_request)
 	{
 		// Check if we don't have an entry to view:
-		if (file == null || (isEmpty = (file == __os_emptyFile_symbol))) // Set 'isEmpty', and check it.
+		if (file == null || (isEmpty = (file == __os_remoteFile_symbol))) // Set 'isEmpty', and check it.
 		{
 			// Check if we could load this file using the current file-system:
 			if (isEmpty || __os_fileCouldExist(realPath))
