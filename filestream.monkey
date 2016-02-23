@@ -18,6 +18,19 @@ Public
 	as well as the internal file-system modules/extensions.
 #End
 
+' Imports (Public):
+Import brl.stream
+
+' Imports (Private):
+Private
+
+Import regal.ioutil.publicdatastream
+
+Import filesystem
+Import legend
+
+Public
+
 ' Preprocessor related:
 #If VIRTUALOS_CREATEFILE_IMPLEMENTED And (VIRTUALOS_EXTENSION_LOADBUFFER Or VIRTUALOS_EXTENSION_SAVEBUFFER)
 	#VIRTUALOS_FILESTREAM_IMPLEMENTED = True
@@ -30,21 +43,6 @@ Public
 #If VIRTUALOS_EXTENSION_SAVEBUFFER
 	VIRTUALOS_FILESTREAM_CAN_SAVE = True
 #End
-
-' Imports (Public):
-Import brl.stream
-
-' Imports (Private):
-Private
-
-#If VIRTUALOS_FILESTREAM_IMPLEMENTED
-	Import regal.ioutil.publicdatastream
-	
-	Import filesystem
-	Import legend
-#End
-
-Public
 
 #If VIRTUALOS_FILESTREAM_IMPLEMENTED
 	' Classes:
