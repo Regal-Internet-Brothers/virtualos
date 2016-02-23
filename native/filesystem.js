@@ -864,6 +864,30 @@ function __os_eliminateByPrefix(storage, prefix)
 	}
 }
 
+// This function removes all entries in '__os_storage'
+// relating to the file-system and global symbols. This means
+// local content will be removed forever, and may make behavior unstable.
+// Only use this if you intend to wipe everything clean.
+function __os_eliminateAll()
+{
+	// Safely remove the file-system instance (Including meta-symbols):
+	__os_eliminateByPrefix(__os_storage, RealPath(""));
+	__os_eliminateByPrefix(__os_storage, __os_symbol_prefix);
+}
+
+// This executes '__os_eliminateAll' if '__os_getVersion' is not compatible,
+// or otherwise problematic. Use this function only if you intend to start
+// a clean slate. This function reserves the right to patch
+// '__os_storage', rather than clear it (When profitable).
+function __os_eliminateAll_OnDifferentVersion()
+{
+	// For now, just check a difference in version number:
+	if (__os_getVersion() != __os_default_version)
+	{
+		__os_eliminateAll();
+	}
+}
+
 // This attempts to produce a valid MIME-type for 'path'.
 function __os_get_MIMEType(realPath, fallback) //fallback=false
 {
