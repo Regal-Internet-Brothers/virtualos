@@ -50,13 +50,41 @@ Class FileStream Extends PublicDataStream
 	Protected
 	
 	Method EstablishStream:Void(Path:String, Mode:String)
-		Select Mode
+		Local FMode:String
+		
+		If (Mode = "a") Then
+			FMode = "u"
+		Else
+			FMode = Mode
+		Endif
+		
+		Select FMode
+			Case "r"
+				
+			Case "w"
+				
+			Case "u"
+				
 			Default
 				Throw New FileStreamOpenException("Invalid file-mode detected.", Path, Self)
 		End Select
 		
+		If (Mode = "a") Then
+			Seek(Length)
+		Endif
+		
+		Self.Path = Path
+		Self.Mode = Mode
+		
 		Return
 	End
+	
+	Public
+	
+	' Fields (Protected):
+	Protected
+	
+	Field Path:String, Mode:String
 	
 	Public
 End
