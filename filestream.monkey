@@ -7,7 +7,19 @@ Public
 	
 	This API intends to be as accurate as possible, allowing
 	users to build consistent codebases between platforms.
+	
+	ATTENTION: This sub-module does not follow the "standalone" behavioral
+	rules applied to the other modules.
+	
+	To use this sub-module, you must have the 'regal.ioutil.publicdatastream'
+	module installed, and any dependencies it requires.
+	
+	In addition, this uses both the standard 'brl.stream' module,
+	as well as the internal file-system modules/extensions.
 #End
+
+' Preprocessor related:
+#VIRTUALOS_FILESTREAM_IMPLEMENTED = True
 
 ' Imports (Public):
 Import brl.stream
