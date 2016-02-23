@@ -27,24 +27,34 @@ Function Main:Int()
 	' Local variable(s):
 	Local Failed:Bool = False
 	
+	Print("Beginning file I/O demo...")
+	
+	Print("")
+	
 	Try
-		Print("Writing information to the file-system...")
+		Local FileNameInQuotes:= InQuotes(OutputFile)
+		
+		Print("Writing data to the file-system at " + FileNameInQuotes + "...")
 		
 		WriteDemoFile(OutputFile)
+		
+		Print("Everything checks out; file-data saved to disk.")
+		Print("")
 		
 		Print("Reading from the file-system...")
 		
 		Local Lines:= ReadDemoFile(OutputFile)
 		
-		Print("File contents loaded.")
+		Print("File contents loaded from disk.")
+		Print("")
 		
-		PrintLines(Lines, "Content:")
+		PrintLines(Lines, "Contents of " + FileNameInQuotes + ":")
 		
-		Print("Cleaning up the file-entry.")
+		Print("Cleaning up the file-system...")
 		
 		' Remove the file we created.
 		If (DeleteFile(OutputFile)) Then
-			Print("File-entry destroyed.")
+			Print("File-data eliminated properly.")
 		Else
 			Print("Insufficient file-permissions, continuing anyway...")
 		Endif
@@ -59,6 +69,8 @@ Function Main:Int()
 		
 		Failed = True
 	End
+	
+	Print("")
 	
 	If (Failed) Then
 		Print("Program execution stopped: Critical error.")
