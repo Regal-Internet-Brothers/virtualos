@@ -40,6 +40,9 @@ Public
 	
 	' Implementation details:
 	
+	' Just in case, ensure we can use 'CreateFile'.
+	#VIRTUALOS_CREATEFILE_IMPLEMENTED = True
+	
 	' This states that environment variables are mapped from Monkey.
 	#VIRTUALOS_MAP_ENV = True
 	'#VIRTUALOS_MAP_FILETIMES = True
@@ -110,6 +113,10 @@ Public
 	' If disabled, an internal implementation may be used.
 	' In some situations, such a version may cause conflicts.
 	#VIRTUALOS_REAL_FILEPATH = True
+#Else
+	#If Not VIRTUALOS_TRADITIONAL
+		#VIRTUALOS_CREATEFILE_IMPLEMENTED = True
+	#End
 #End
 
 ' Global configuration for implemented 'virtualos' code:

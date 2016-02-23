@@ -101,7 +101,12 @@ Public
 		Function __DeleteFile:Bool(Path:String)="DeleteFile"
 	#End
 	
+	#If VIRTUALOS_CREATEFILE_IMPLEMENTED
+		Function CreateFile:Bool(Path:String)
+	#End
+	
 	Function LoadDir:String[](Path:String)
+	
 	Function CreateDir:Bool(Path:String)
 	
 	Function DeleteDir:Bool(Path:String)
