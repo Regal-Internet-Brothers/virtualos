@@ -92,6 +92,45 @@ function __os_mark_remote_file(url, value)
 
 // Conversion and storage semantics:
 
+// This retrieves the string-identifier for 'type'.
+// These strings are extrapolated from the "FILESYSTEM_ENCODING" constants.
+function __os_getEncodingString(type)
+{
+	switch (type)
+	{
+		case FILESYSTEM_ENCODING_STRING:
+			return "text"; // break;
+		case FILESYSTEM_ENCODING_BASE64:
+			return ""; // break;
+		case FILESYSTEM_ENCODING_ARRAYBUFFER:
+			return "arraybuffer"; // break;
+	}
+
+	return "";
+}
+
+function __os_getEncodingTypeFromString(type_str)
+{
+	switch (type_str)
+	{
+		case "text":
+			return FILESYSTEM_ENCODING_STRING; // break;
+		case "":
+			return FILESYSTEM_ENCODING_BASE64; // break;
+		case "arraybuffer":
+			return FILESYSTEM_ENCODING_ARRAYBUFFER; // break;
+	}
+}
+
+function __os_smartConvert(rawData, inputType, outputType)
+{
+	switch (inputType)
+	{
+		case :
+			return ;
+	}
+}
+
 // This represents the native encoding scheme for files.
 // (DO NOT MODIFY; see '__os_setFileSystemEncoding')
 function __os_getFileSystemEncoding()
@@ -401,7 +440,7 @@ function __os_clear_FileTimes()
 
 // This downloads from 'url', and returns the file's data.
 // If no file was found, the return-value is undefined.
-function __os_download(url, lastTime, out_ext) // lastTime=null
+function __os_download(url, lastTime, out_ext) // lastTime=null, out_ext=null
 {
 	var rawData = __os_download_as_string(url, lastTime, out_ext); // __os_download_raw(url, lastTime);
 	
@@ -413,12 +452,13 @@ function __os_download(url, lastTime, out_ext) // lastTime=null
 	return __os_String_To_Native(rawData);
 }
 
-function __os_download_as_string(url, lastTime, out_ext) // lastTime=null
+function __os_download_as_string(url, lastTime, out_ext) // lastTime=null, out_ext=null
 {
 	return __os_download_raw(url, lastTime, out_ext);
 }
 
-function __os_download_raw(url, lastTime, out_ext) // lastTime=null
+// This returns 'true' if the file at 'url' should be requested.
+function __os_download_checkResponse(url)
 {
 	if (__os_should_log_remote_file_responses)
 	{
@@ -426,16 +466,51 @@ function __os_download_raw(url, lastTime, out_ext) // lastTime=null
 		{
 			if (__os_badcache)
 			{
-				delete __os_remote_file_responses[url]
+				delete __os_remote_file_responses[url];
 			}
 			else
 			{
 				if (!__os_remote_file_responses[url])
 				{
-					return null;
+					return false;
 				}
 			}
 		}
+	}
+
+	return true;
+}
+
+function __os_download_async_raw(url, encodeType, callback, lastTime) // lastTime=null
+{
+	if (!__os_download_checkResponse(url))
+	{
+		return null;
+	}
+
+	// This represents a string used to request data from a remote server. (String)
+	var outputType = __os_getEncodingString(encodeType);
+
+	var xhr = new XMLHttpRequest();
+
+	xhr.open("GET", url);
+	xhr.responseType = outputType;
+
+	xhr.onreadystatechange = function ()
+	{
+		var data = __os_smartConvert(xhr.response, __os_getEncodingTypeFromString(outputType), encodeType);
+
+		callback(url, data, xhr);
+	}
+
+	xhr.send();
+}
+
+function __os_download_raw(url, lastTime, out_ext) // lastTime=null, out_ext=null
+{
+	if (!__os_download_checkResponse(url))
+	{
+		return null;
 	}
 	
 	var xhr = new XMLHttpRequest();
