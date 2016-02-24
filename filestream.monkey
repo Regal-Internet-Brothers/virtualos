@@ -67,7 +67,7 @@ Public
 		Method New(Path:String, Mode:String, Size:Int=Default_Size, FixByteOrder:Bool=Default_BigEndianStorage, SizeLimit:Int=NOLIMIT)
 			Super.New(Size, FixByteOrder, True, SizeLimit)
 			
-			EstablishStream(Path, Mode)
+			EstablishStream(ResolveProtocolPath(Path), Mode)
 		End
 		
 		' Constructor(s) (Protected):

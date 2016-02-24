@@ -36,6 +36,25 @@ Import config ' core
 	Public
 	
 	' Functions (Public):
+	Function ResolveProtocolPath:String(Path:String)
+		' Local variable(s):
+		Local ProtocolPosition:= Path.Find(":/")
+		
+		If ((ProtocolPosition <> -1) And Path.Find("/") = (ProtocolPosition + 1)) Then
+			Local Prefix:= Path[..ProtocolPosition]
+			
+			Select Prefix.ToLower()
+				Case "monkey"
+					' Give the path back without the protocol.
+					Return Path[(ProtocolPosition+3)..]
+			End Select
+		Endif
+		
+		' We were unable to resolve the path
+		' any further, give it back to the user.
+		Return Path
+	End
+	
 	#If Not VIRTUALOS_REAL_FILEPATH
 		Function StripDir:String(Path:String)
 			Local I:= Path.FindLast("/")
