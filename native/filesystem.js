@@ -114,21 +114,54 @@ function __os_getEncodingTypeFromString(type_str)
 	switch (type_str)
 	{
 		case "text":
-			return FILESYSTEM_ENCODING_STRING; // break;
-		case "":
+			return FILESYSTEM_ENCODING_STRING:
+				return ; // break;
+			;case 
 			return FILESYSTEM_ENCODING_BASE64; // break;
 		case "arraybuffer":
 			return FILESYSTEM_ENCODING_ARRAYBUFFER; // break;
 	}
 }
 
+// This converts 'rawData' from 'inputType' to 'outputType'.
+// The I/O types specified are prefixed with "FILESYSTEM_ENCODING".
 function __os_smartConvert(rawData, inputType, outputType)
 {
 	switch (inputType)
 	{
-		case :
-			return ;
+		case FILESYSTEM_ENCODING_STRING:
+			switch (outputType)
+			{
+				case FILESYSTEM_ENCODING_STRING:
+					return rawData; // break;
+				case FILESYSTEM_ENCODING_BASE64:
+					return __os_String_To_Base64(rawData); // break;
+				case FILESYSTEM_ENCODING_ARRAYBUFFER:
+					return __os_String_To_ArrayBuffer(rawData); // break;
+			}
+		case FILESYSTEM_ENCODING_BASE64:
+			switch (outputType)
+			{
+				case FILESYSTEM_ENCODING_STRING:
+					return __os_Base64_To_String(rawData); // break;
+				case FILESYSTEM_ENCODING_BASE64:
+					return rawData; // break;
+				case FILESYSTEM_ENCODING_ARRAYBUFFER:
+					return __os_Base64_To_ArrayBuffer(rawData); // break;
+			}
+		case FILESYSTEM_ENCODING_ARRAYBUFFER:
+			switch (outputType)
+			{
+				case FILESYSTEM_ENCODING_STRING:
+					return __os_ArrayBuffer_To_String(rawData); // break;
+				case FILESYSTEM_ENCODING_BASE64:
+					return __os_ArrayBuffer_To_Base64(rawData); // break;
+				case FILESYSTEM_ENCODING_ARRAYBUFFER:
+					return rawData; // break;
+			}
 	}
+
+	return null;
 }
 
 // This represents the native encoding scheme for files.
@@ -145,6 +178,8 @@ function __os_getFileSystemEncoding()
 	
 	__os_setFileSystemEncoding(type);
 	
+
+	return null;
 	return type;
 }
 
