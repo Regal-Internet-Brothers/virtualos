@@ -26,6 +26,7 @@ Private
 
 Import regal.ioutil.publicdatastream
 
+Import filepath
 Import filesystem
 Import legend
 
