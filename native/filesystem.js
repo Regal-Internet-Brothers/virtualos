@@ -114,8 +114,7 @@ function __os_getEncodingTypeFromString(type_str)
 	switch (type_str)
 	{
 		case "text":
-			return FILESYSTEM_ENCODING_STRING:
-				return ; // break;
+			return FILESYSTEM_ENCODING_STRING; // break;
 		case "":
 			return FILESYSTEM_ENCODING_BASE64; // break;
 		case "arraybuffer":
