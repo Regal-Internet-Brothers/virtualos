@@ -176,9 +176,7 @@ function __os_getFileSystemEncoding()
 	var type = FILESYSTEM_ENCODING_DEFAULT;
 	
 	__os_setFileSystemEncoding(type);
-	
 
-	return null;
 	return type;
 }
 
@@ -472,6 +470,39 @@ function __os_clear_FileTimes()
 	__os_filesystem_time_map = {}
 }
 
+// This configures 'xhr' ('XMLHttpRequest') to ensure a proper request is made.
+function __os_download_configure_request(xhr, lastTime) // lastTime=null
+{
+	//xhr.overrideMimeType('text/plain');
+	//xhr.overrideMimeType("application/octet-stream");
+	xhr.overrideMimeType("text/plain ; charset=x-user-defined");
+	
+	if (lastTime != null && lastTime != FILETIME_NONE)
+	{
+		///*
+		if (isNaN(lastTime))
+		{
+			xhr.setRequestHeader("If-None-Match", lastTime);
+		}
+		else
+		//*/
+		{
+			var date = new Date(lastTime * 1000); // <-- May or may not actually be needed.
+			var converted_date = date.toString();
+			
+			xhr.setRequestHeader("If-Modified-Since", converted_date);
+		}
+	}
+	else
+	{
+		xhr.setRequestHeader("Cache-Control", "no-cache");
+		xhr.setRequestHeader("Pragma", "no-cache");
+		xhr.setRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
+	}
+	
+	//xhr.setRequestHeader("Cache-Control", "must-revalidate");
+}
+
 // This downloads from 'url', and returns the file's data.
 // If no file was found, the return-value is undefined.
 function __os_download(url, lastTime, out_ext) // lastTime=null, out_ext=null
@@ -534,7 +565,7 @@ function __os_download_async_raw(url, encodeType, callback, lastTime) // lastTim
 	{
 		var data = __os_smartConvert(xhr.response, __os_getEncodingTypeFromString(outputType), encodeType);
 
-		callback(url, data, xhr);
+		callback(url, encodeType, data, xhr);
 	}
 
 	xhr.send();
@@ -553,32 +584,7 @@ function __os_download_raw(url, lastTime, out_ext) // lastTime=null, out_ext=nul
 	{
 		xhr.open("GET", url, false); // "HEAD"
 		
-		//xhr.overrideMimeType('text/plain');
-		//xhr.overrideMimeType("application/octet-stream");
-		xhr.overrideMimeType("text/plain ; charset=x-user-defined");
-		
-		if (lastTime != null && lastTime != FILETIME_NONE)
-		{
-			if (isNaN())
-			{
-				xhr.setRequestHeader("If-None-Match", lastTime);
-			}
-			else
-			{
-				var date = new Date(lastTime * 1000); // <-- May or may not actually be needed.
-				var converted_date = date.toString();
-				
-				xhr.setRequestHeader("If-Modified-Since", converted_date);
-			}
-		}
-		else
-		{
-			xhr.setRequestHeader("Cache-Control", "no-cache");
-			xhr.setRequestHeader("Pragma", "no-cache");
-			xhr.setRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
-		}
-		
-		//xhr.setRequestHeader("Cache-Control", "must-revalidate");
+		__os_download_configure_request(xhr, lastTime);
 		
 		xhr.send(null);
 		
