@@ -738,7 +738,7 @@ function __os_downloadFileUsingRep(storage, url, rep, isEmpty) // isEmpty=false
 		
 		if (fileTimesEnabled)
 		{
-			var out = [FILETIME_NONE]; // <-- Just to be safe.
+			var out = [];
 			var currentFileTime = __os_get_FileTime(rep);
 			
 			data = __os_download(url, currentFileTime, out);
