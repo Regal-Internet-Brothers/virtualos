@@ -109,14 +109,18 @@ function __os_getEncodingString(type)
 	return "";
 }
 
+// This does not always produce the same result as
+// the input from a call to '__os_getEncodingString'.
+// In other words, something that's a string-based format,
+// like base64, will be reported as 'FILESYSTEM_ENCODING_STRING'.
 function __os_getEncodingTypeFromString(type_str)
 {
 	switch (type_str)
 	{
+		case "":
+			//return FILESYSTEM_ENCODING_BASE64; // break;
 		case "text":
 			return FILESYSTEM_ENCODING_STRING; // break;
-		case "":
-			return FILESYSTEM_ENCODING_BASE64; // break;
 		case "arraybuffer":
 			return FILESYSTEM_ENCODING_ARRAYBUFFER; // break;
 	}
@@ -546,81 +550,146 @@ function __os_download_checkResponse(url)
 	return true;
 }
 
-function __os_download_async_raw(url, encodeType, callback, lastTime) // lastTime=null
+// This reads information from a finished 'XMLHttpRequest', and places it into 'out_ext'.
+function __os_download_buildExtData(xhr, out_ext)
 {
+	var lastModified = xhr.getResponseHeader("Last-Modified");
+	
+	if (lastModified)
+	{
+		out_ext.push(Date.parse(lastModified));
+	}
+	else
+	{
+		var eTag = xhr.getResponseHeader("ETag");
+		
+		if (eTag)
+		{
+			var value = eTag.replace(/['"']+/g, "");
+			
+			if (isNaN(value))
+			{
+				out_ext.push(value);
+			}
+			else
+			{
+				var ivalue = Number(value);
+				
+				out_ext.push(ivalue);
+			}
+		}
+		else
+		{
+			out_ext.push(FILETIME_NONE);
+		}
+	}
+}
+
+// This makes a request to download.
+function __os_download_async(url, encodeType, callback, lastTime) // lastTime=null
+{
+	// Check if we should bother downloading:
 	if (!__os_download_checkResponse(url))
 	{
-		return null;
+		callback(url, encodeType, null, null, null);
+
+		return;
 	}
 
 	// This represents a string used to request data from a remote server. (String)
+	// Basically, we're converting from the numeric format.
 	var outputType = __os_getEncodingString(encodeType);
 
+	// Allocate a request-object.
 	var xhr = new XMLHttpRequest();
 
+	// Start building an HTTP request:
 	xhr.open("GET", url);
+
+	// Configure our request appropriately.
+	__os_download_configure_request(xhr, lastTime);
+
+	// Set the type of response we want.
 	xhr.responseType = outputType;
 
+	// Set a function to handle the result:
 	xhr.onreadystatechange = function ()
 	{
-		var data = __os_smartConvert(xhr.response, __os_getEncodingTypeFromString(outputType), encodeType);
+		// Local variable(s):
 
-		callback(url, encodeType, data, xhr);
+		// This will act as a handle to our output-data.
+		var data = null;
+
+		// This is used to load extended data from the request.
+		var out_ext = [];
+
+		// Build 'out_ext' from the contents of 'xhr'.
+		__os_download_buildExtData(xhr, out_ext);
+
+		// Perform tasks based on the HTTP response-code:
+		switch (xhr.status)
+		{
+			// Success:
+			case 0:
+			case 200:
+				// Convert the output to the format we requested originally.
+				data = __os_smartConvert(xhr.response, __os_getEncodingTypeFromString(outputType), encodeType);
+			// Cache intervention / final behavior:
+			case 304:
+				// In all cases, make sure the remote file is marked.
+				__os_mark_remote_file(url, true);
+
+				break;
+		}
+
+		// Tell the caller what's going on.
+		callback(url, encodeType, data, xhr, out_ext);
 	}
 
+	// Start the asynchronous request.
 	xhr.send();
 }
 
+/*
+	This requests a file from the remote server described in 'url'.
+
+	This is completely synchronous, and will therefore halt execution.
+	
+	The 'lastTime' argument is used to represent a previous request.
+	
+	The 'out_ext' argument is an optional array that may
+	be filled with information regarding file-versions.
+
+	This is useful for secondary requests, as you can pass
+	the result of 'out_ext' as 'lastTime'.
+*/
+
 function __os_download_raw(url, lastTime, out_ext) // lastTime=null, out_ext=null
 {
+	// Check if we should bother downloading:
 	if (!__os_download_checkResponse(url))
 	{
 		return null;
 	}
 	
+	// Allocate a request-object.
 	var xhr = new XMLHttpRequest();
 	
 	try
 	{
+		// Initialize our request:
 		xhr.open("GET", url, false); // "HEAD"
 		
+		// Configure our request appropriately.
 		__os_download_configure_request(xhr, lastTime);
 		
+		// Send the request synchronously.
 		xhr.send(null);
 		
-		// Check if 'out_ext' was defined:
+		// Check if 'out_ext' was provided:
 		if (out_ext !== undefined)
 		{
-			var lastModified = xhr.getResponseHeader("Last-Modified");
-			
-			if (lastModified)
-			{
-				out_ext[0] = Date.parse(lastModified); // out_ext.push(..);
-			}
-			else
-			{
-				var eTag = xhr.getResponseHeader("ETag");
-				
-				if (eTag)
-				{
-					var value = eTag.replace(/['"']+/g, "");
-					
-					if (isNaN(value))
-					{
-						out_ext[0] = value;
-					}
-					else
-					{
-						var ivalue = Number(value);
-						
-						out_ext[0] = (ivalue);
-					}
-				}
-				else
-				{
-					out_ext[0] = FILETIME_NONE; // out_ext.push(..);
-				}
-			}
+			__os_download_buildExtData(xhr, out_ext);
 		}
 		
 		switch (xhr.status)
@@ -641,8 +710,12 @@ function __os_download_raw(url, lastTime, out_ext) // lastTime=null, out_ext=nul
 		// Nothing so far.
 	}
 	
+	// If this point was reached, the request was a total failure.
+
+	// Check if our cache is valid:
 	if (!__os_badcache)
 	{
+		// Log this failure for future optimization.
 		__os_mark_remote_file(url, false);
 	}
 }
